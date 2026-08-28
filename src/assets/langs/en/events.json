@@ -14,5 +14,18 @@
   "publishEvent": "Publish Event",
   "noEvents": "No upcoming events yet.",
   "noEventsHint": "Be the first to create one for the community!",
-  "deleteEvent": "Delete event"
+  "deleteEvent": "Delete event",
+  "editEvent": "Edit Event",
+  "editing": "Saving...",
+  "saveChanges": "Save Changes",
+  "viewMembers": "View Attendees",
+  "eventMembers": "Event Attendees",
+  "allMembers": "All Attendees",
+  "organizer": "Organizer",
+  "attendee": "Attendee",
+  "noMembersYet": "No attendees have joined yet",
+  "searchMembers": "Search attendees...",
+  "confirmDeleteTitle": "Are you sure you want to delete this event?",
+  "confirmDeleteDesc": "This action cannot be undone.",
+  "delete": "Delete"
 }

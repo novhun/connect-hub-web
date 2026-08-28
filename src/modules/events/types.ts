@@ -1,6 +1,6 @@
-import { EventItem } from '../../types';
+import { EventItem, EventMember } from '../../types';
 
-export type { EventItem };
+export type { EventItem, EventMember };
 
 export interface CreateEventPayload {
   title: string;
@@ -9,4 +9,13 @@ export interface CreateEventPayload {
   category?: string;
   coverImage?: string;
   startAt: string;
+}
+
+export interface UpdateEventPayload {
+  title?: string;
+  description?: string;
+  location?: string;
+  category?: string;
+  coverImage?: string;
+  startAt?: string;
 }

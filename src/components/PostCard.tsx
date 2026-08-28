@@ -21,6 +21,9 @@ import {
 import { Post, ReactionType, User } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
+import { formatNotificationTimestamp } from '../utils/notificationHelpers';
+import { getYouTubeVideoId, extractUrls, isVideoFile } from '../utils/mediaHelpers';
+import { VideoEmbedPlayer } from './VideoEmbedPlayer';
 
 interface PostCardProps {
   post: Post;
@@ -151,15 +154,22 @@ export const PostCard: React.FC<PostCardProps> = ({
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
-              <span>{post.timestamp}</span>
+            <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-1">
+              <span>{formatNotificationTimestamp(post.timestamp, language)}</span>
               <span>•</span>
               {post.privacy === 'public' ? (
-                <Globe className="w-3.5 h-3.5 text-gray-400" />
+                <span className="flex items-center gap-0.5" title={language === 'km' ? 'សាធារណៈ (Public)' : 'Public'}>
+                  <Globe className="w-3.5 h-3.5 text-gray-400" />
+                </span>
               ) : post.privacy === 'friends' ? (
-                <Users className="w-3.5 h-3.5 text-gray-400" />
+                <span className="flex items-center gap-0.5" title={language === 'km' ? 'មិត្តភក្តិ (Friends)' : 'Friends'}>
+                  <Users className="w-3.5 h-3.5 text-blue-500" />
+                </span>
               ) : (
-                <Lock className="w-3.5 h-3.5 text-gray-400" />
+                <span className="flex items-center gap-1 bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-md font-medium text-[10px]" title={language === 'km' ? 'តែខ្ញុំប៉ុណ្ណោះ (Only Me)' : 'Only Me'}>
+                  <Lock className="w-3 h-3 text-amber-600" />
+                  <span>{language === 'km' ? 'តែខ្ញុំប៉ុណ្ណោះ' : 'Only Me'}</span>
+                </span>
               )}
               {post.location && (
                 <>
@@ -247,6 +257,21 @@ export const PostCard: React.FC<PostCardProps> = ({
         <p className="text-sm text-gray-800 mb-3 whitespace-pre-line leading-relaxed font-normal">
           {post.content}
         </p>
+
+        {/* Embedded YouTube / Video Link Player */}
+        {(() => {
+          const urls = extractUrls(post.content);
+          const firstYtOrVideoUrl = urls.find((u) => getYouTubeVideoId(u) || isVideoFile(u));
+          if (!firstYtOrVideoUrl) return null;
+          return (
+            <div className="mb-3">
+              <VideoEmbedPlayer
+                url={firstYtOrVideoUrl}
+                onOpenFullscreen={(u) => setLightboxImage(u)}
+              />
+            </div>
+          );
+        })()}
 
         {/* Dynamic Image Gallery Grid */}
         {post.images && post.images.length > 0 && (

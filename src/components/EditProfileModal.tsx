@@ -132,20 +132,23 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     if (!name.trim()) return;
 
     setIsSaving(true);
-    const patch: Partial<User> = {
+    const trimmedCover = coverImage.trim();
+    const patch: any = {
       name: name.trim(),
       role: role.trim(),
       jobTitle: jobTitle.trim(),
+      job_title: jobTitle.trim(),
       bio: bio.trim(),
       location: location.trim(),
       website: website.trim(),
       avatar: avatar.trim(),
-      coverImage: coverImage.trim() || undefined,
+      coverImage: trimmedCover || '',
+      cover_image: trimmedCover || '',
     };
 
     try {
-      await api.updateProfile(patch);
-      onUpdateProfile(patch);
+      const updatedUser = await api.updateProfile(patch);
+      onUpdateProfile(updatedUser || patch);
       onClose();
     } catch (err) {
       console.warn('Update profile API notice:', err);

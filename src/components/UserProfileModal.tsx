@@ -410,7 +410,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       {/* 2. Dedicated Edit Profile & Cover Modal */}
       {isFullEditModalOpen && (
         <EditProfileModal
-          currentUser={currentUser}
+          currentUser={profileUser || currentUser}
           onClose={() => setIsFullEditModalOpen(false)}
           onUpdateProfile={handleProfileUpdated}
         />

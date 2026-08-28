@@ -8,5 +8,11 @@
   "callHistory": "Call History",
   "callback": "Callback",
   "loadingHistory": "Loading call history...",
-  "noCallHistory": "No calls yet. Start one above!"
+  "noCallHistory": "No calls yet. Start one above!",
+  "noFriendsTitle": "No Friends in Contact List",
+  "noFriendsDesc": "You can call confirmed friends. Connect and add friends to start HD audio and video calls.",
+  "findFriends": "Find Friends",
+  "offline": "Offline",
+  "online": "Online",
+  "friendsContacts": "Friends Contacts"
 }

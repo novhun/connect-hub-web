@@ -1,4 +1,4 @@
-import { Post, Story, Group, User, ReactionType, NotificationItem, DirectMessage, EventItem, SupportMessage, UserSettings, FriendStatusInfo, FriendRequestItem } from '../types';
+import { Post, Story, Group, GroupMember, User, ReactionType, NotificationItem, DirectMessage, EventItem, EventMember, SupportMessage, UserSettings, FriendStatusInfo, FriendRequestItem } from '../types';
 
 const API_BASE = (((import.meta as any).env?.VITE_API_URL as string) || 'https://connect-hub-api.fastapicloud.dev').replace(/\/$/, '');
 const API_URL = `${API_BASE}/api/v1`;
@@ -108,11 +108,21 @@ class ApiService {
     return this.request<User>(`/users/profile/${userId}`);
   }
 
-  async updateProfile(data: Partial<User>): Promise<User> {
-    return this.request<User>('/users/profile', {
+  async updateProfile(data: Partial<User> & { cover_image?: string; job_title?: string }): Promise<User> {
+    const res = await this.request<User>('/users/profile', {
       method: 'PUT',
       body: JSON.stringify(data),
     });
+    if (res) {
+      try {
+        const stored = localStorage.getItem('connecthub_user');
+        if (stored) {
+          const userObj = JSON.parse(stored);
+          localStorage.setItem('connecthub_user', JSON.stringify({ ...userObj, ...res }));
+        }
+      } catch (_) {}
+    }
+    return res;
   }
 
   async updatePresence(isOnline: boolean): Promise<User> {
@@ -253,6 +263,32 @@ class ApiService {
     });
   }
 
+  async updateGroup(
+    groupId: string,
+    data: {
+      name?: string;
+      icon?: string;
+      coverImage?: string;
+      description?: string;
+      isPrivate?: boolean;
+    }
+  ): Promise<Group> {
+    return this.request<Group>(`/groups/${groupId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getGroupMembers(groupId: string): Promise<GroupMember[]> {
+    return this.request<GroupMember[]>(`/groups/${groupId}/members`);
+  }
+
+  async deleteGroup(groupId: string): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/groups/${groupId}`, {
+      method: 'DELETE',
+    });
+  }
+
   async leaveGroup(groupId: string): Promise<Group> {
     return this.request<Group>(`/groups/${groupId}/leave`, {
       method: 'POST',
@@ -260,14 +296,29 @@ class ApiService {
   }
 
   // --- CHAT ---
+  async getConversations(): Promise<{ user: User; lastMessage?: string; lastTimestamp?: string; unreadCount: number }[]> {
+    return this.request<{ user: User; lastMessage?: string; lastTimestamp?: string; unreadCount: number }[]>('/chat/conversations');
+  }
+
   async getMessages(userId: string): Promise<DirectMessage[]> {
     return this.request<DirectMessage[]>(`/chat/${userId}`);
   }
 
-  async sendMessage(userId: string, text: string): Promise<DirectMessage> {
+  async sendMessage(
+    userId: string,
+    payload: string | {
+      text?: string;
+      messageType?: 'text' | 'voice' | 'file' | 'sticker' | 'image';
+      mediaUrl?: string;
+      fileName?: string;
+      fileSize?: string;
+      duration?: string;
+    }
+  ): Promise<DirectMessage> {
+    const body = typeof payload === 'string' ? { text: payload } : payload;
     return this.request<DirectMessage>(`/chat/${userId}`, {
       method: 'POST',
-      body: JSON.stringify({ text }),
+      body: JSON.stringify(body),
     });
   }
 
@@ -348,6 +399,10 @@ class ApiService {
     return this.request<EventItem[]>('/events');
   }
 
+  async getEvent(eventId: string): Promise<EventItem> {
+    return this.request<EventItem>(`/events/${eventId}`);
+  }
+
   async createEvent(data: {
     title: string;
     description?: string;
@@ -360,6 +415,27 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  async updateEvent(
+    eventId: string,
+    data: {
+      title?: string;
+      description?: string;
+      location?: string;
+      category?: string;
+      coverImage?: string;
+      startAt?: string;
+    }
+  ): Promise<EventItem> {
+    return this.request<EventItem>(`/events/${eventId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getEventMembers(eventId: string): Promise<EventMember[]> {
+    return this.request<EventMember[]>(`/events/${eventId}/members`);
   }
 
   async attendEvent(eventId: string): Promise<EventItem> {

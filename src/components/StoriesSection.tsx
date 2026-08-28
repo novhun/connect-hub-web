@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import { Plus, ChevronRight, ChevronLeft } from 'lucide-react';
 import { Story, User } from '../types';
 import { useLanguage } from '../context/LanguageContext';
-
+import { formatNotificationTimestamp } from '../utils/notificationHelpers';
 import { api } from '../services/api';
 
 interface StoriesSectionProps {
@@ -18,7 +18,7 @@ export const StoriesSection: React.FC<StoriesSectionProps> = ({
   onOpenCreateStory,
   onViewStory,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const handleScroll = (direction: 'left' | 'right') => {
@@ -93,7 +93,7 @@ export const StoriesSection: React.FC<StoriesSectionProps> = ({
                   {story.userName}
                 </p>
                 <p className="text-[10px] text-gray-200 font-medium">
-                  {story.timestamp}
+                  {formatNotificationTimestamp(story.timestamp, language)}
                 </p>
               </div>
             </div>

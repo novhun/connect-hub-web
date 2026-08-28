@@ -5,5 +5,22 @@
   "typeMessage": "Type a message...",
   "audioCall": "Start Audio Call",
   "videoCall": "Start Video Call",
-  "startConversation": "Start a conversation"
+  "startConversation": "Start a conversation",
+  "noFriendsTitle": "No Friends in Chat List",
+  "noFriendsDesc": "Direct messaging is available with confirmed friends only. Connect and add friends to start chatting.",
+  "findFriends": "Find Friends",
+  "noFriendsSelected": "Select a friend to start chatting",
+  "noMessages": "No messages yet. Say hello to {name}! 👋",
+  "loadingMessages": "Loading messages...",
+  "loadingChats": "Loading conversations...",
+  "voiceRecord": "Record Voice",
+  "recording": "Recording...",
+  "sendVoice": "Send Voice",
+  "cancelRecord": "Cancel",
+  "uploadFile": "Send File (max 70MB)",
+  "stickers": "Stickers",
+  "fileSizeExceeded": "File is too large! Maximum allowed size is 70 MB",
+  "uploadingFile": "Uploading file...",
+  "downloadFile": "Download File",
+  "voiceMessage": "Voice Message"
 }

@@ -123,19 +123,19 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
 
             {/* Caption Input */}
             <div>
-              <label className="text-xs font-bold text-gray-700 block mb-1.5">{t('createStory.addCaption')}</label>
+              <label className="text-xs font-bold text-gray-700 block mb-1.5">{t('modals.addCaption')}</label>
               <input
                 type="text"
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
-                placeholder={t('createStory.captionPlaceholder')}
+                placeholder={t('modals.captionPlaceholder')}
                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs text-gray-800 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               />
             </div>
 
             {/* Photo background choice */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-gray-700 block">{t('createStory.chooseBackground')}</label>
+              <label className="text-xs font-bold text-gray-700 block">{t('modals.chooseBackground')}</label>
               <div className="grid grid-cols-4 gap-2">
                 {SAMPLE_STORY_BACKGROUNDS.map((bg, idx) => (
                   <div
@@ -163,14 +163,14 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
                   ) : (
                     <Upload className="w-3.5 h-3.5 text-gray-600" />
                   )}
-                  <span>{isUploading ? 'Uploading...' : t('createStory.uploadImage')}</span>
+                  <span>{isUploading ? (language === 'km' ? 'កំពុងបញ្ចូល...' : 'Uploading...') : t('modals.uploadImage')}</span>
                   <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
                 </label>
                 <input
                   type="text"
                   value={customUrl}
                   onChange={(e) => setCustomUrl(e.target.value)}
-                  placeholder={t('createStory.orImageURL')}
+                  placeholder={t('modals.orImageURL')}
                   className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-800 outline-none focus:bg-white focus:ring-1 focus:ring-blue-500"
                 />
               </div>
@@ -184,7 +184,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
               disabled={isUploading}
               className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] disabled:bg-gray-200 text-white font-bold py-2.5 rounded-xl text-sm transition-colors shadow-xs cursor-pointer"
             >
-              {isUploading ? 'Uploading...' : t('createStory.shareToStory')}
+              {isUploading ? (language === 'km' ? 'កំពុងដំណើរការ...' : 'Uploading...') : t('modals.shareToStory')}
             </button>
           </div>
         </form>

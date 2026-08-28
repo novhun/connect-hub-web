@@ -18,6 +18,9 @@ interface GroupDetailModalProps {
   onEditPost?: (post: Post) => void;
   onDeletePost?: (postId: string) => void;
   onViewProfile?: (userId: string) => void;
+  onEditGroup?: (group: Group) => void;
+  onDeleteGroup?: (group: Group) => void;
+  onViewMembers?: (group: Group) => void;
 }
 
 export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
@@ -33,8 +36,11 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
   onEditPost,
   onViewProfile,
   onDeletePost,
+  onEditGroup,
+  onDeleteGroup,
+  onViewMembers,
 }) => {
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const isJoined = !!group.joined;
 
   return (
@@ -66,23 +72,54 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
               <img
                 src={api.getMediaUrl(group.icon)}
                 alt={group.name}
-                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-4 border-white shadow-md object-cover bg-white"
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-4 border-white shadow-md object-cover bg-white shrink-0"
               />
               <div className="pt-2">
                 <h2 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">{group.name}</h2>
                 <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5 sm:mt-1 font-medium">
                   {group.isPrivate ? (
-                    <span className="flex items-center gap-1"><Lock className="w-3 h-3" /> {language === 'km' ? 'ក្រុមឯកជន' : 'Private Group'}</span>
+                    <span className="flex items-center gap-1"><Lock className="w-3 h-3" /> {t('groups.private')}</span>
                   ) : (
-                    <span className="flex items-center gap-1"><Globe className="w-3 h-3" /> {language === 'km' ? 'ក្រុមសាធារណៈ' : 'Public Group'}</span>
+                    <span className="flex items-center gap-1"><Globe className="w-3 h-3" /> {t('groups.public')}</span>
                   )}
                   <span>•</span>
-                  <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {group.membersCount}</span>
+                  <button 
+                    onClick={() => onViewMembers?.(group)}
+                    className="flex items-center gap-1 text-blue-600 hover:text-blue-700 underline font-medium cursor-pointer"
+                  >
+                    <Users className="w-3 h-3" /> {group.membersCount}
+                  </button>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {group.isManaged && onEditGroup && (
+                <button
+                  onClick={() => onEditGroup(group)}
+                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
+                >
+                  {t('groups.editGroup')}
+                </button>
+              )}
+
+              {group.isManaged && onDeleteGroup && (
+                <button
+                  onClick={() => onDeleteGroup(group)}
+                  className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
+                >
+                  {t('groups.delete')}
+                </button>
+              )}
+
+              <button
+                onClick={() => onViewMembers?.(group)}
+                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>{t('groups.viewMembers')}</span>
+              </button>
+
               <button
                 onClick={() => onToggleJoin(group.id)}
                 className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${

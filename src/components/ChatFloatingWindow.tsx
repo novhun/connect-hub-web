@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Minus, Send, Phone, Video, Smile, MoreVertical } from 'lucide-react';
+import { X, Minus, Send, Phone, Video, Smile, MoreVertical, Play } from 'lucide-react';
 import { User, DirectMessage } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
@@ -157,15 +157,73 @@ export const ChatFloatingWindow: React.FC<ChatFloatingWindowProps> = ({
                 key={msg.id}
                 className={`flex flex-col ${msg.isMe ? 'items-end' : 'items-start'}`}
               >
-                <div
-                  className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${
-                    msg.isMe
-                      ? 'bg-[#2563eb] text-white rounded-br-xs'
-                      : 'bg-white text-gray-800 border border-gray-200/80 rounded-bl-xs shadow-2xs'
-                  }`}
-                >
-                  {msg.text}
-                </div>
+                {msg.messageType === 'voice' && msg.mediaUrl ? (
+                  <div
+                    className={`max-w-[90%] rounded-2xl p-2 text-xs ${
+                      msg.isMe
+                        ? 'bg-[#2563eb] text-white rounded-br-xs'
+                        : 'bg-white text-gray-800 border border-gray-200 rounded-bl-xs shadow-2xs'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          const a = new Audio(api.getMediaUrl(msg.mediaUrl!));
+                          a.play().catch(() => {});
+                        }}
+                        className={`w-6 h-6 rounded-full flex items-center justify-center cursor-pointer ${
+                          msg.isMe ? 'bg-white text-blue-600' : 'bg-blue-600 text-white'
+                        }`}
+                      >
+                        <Play className="w-3 h-3 ml-0.5 fill-current" />
+                      </button>
+                      <span className="text-[10px] font-medium">
+                        🎤 {msg.duration || '0:10'}
+                      </span>
+                    </div>
+                  </div>
+                ) : msg.messageType === 'sticker' ? (
+                  <div className="text-4xl py-1 select-none hover:scale-110 transition-transform">
+                    {msg.text}
+                  </div>
+                ) : msg.messageType === 'image' && msg.mediaUrl ? (
+                  <div className="rounded-xl overflow-hidden border border-gray-200 max-w-[200px] bg-black/5">
+                    <img
+                      src={api.getMediaUrl(msg.mediaUrl)}
+                      alt="Photo"
+                      onClick={() => window.open(api.getMediaUrl(msg.mediaUrl!), '_blank')}
+                      className="w-full h-auto max-h-40 object-cover cursor-pointer"
+                    />
+                  </div>
+                ) : msg.messageType === 'file' && msg.mediaUrl ? (
+                  <div
+                    className={`p-2 rounded-xl border flex items-center gap-2 max-w-[240px] text-xs ${
+                      msg.isMe
+                        ? 'bg-[#2563eb] text-white rounded-br-xs'
+                        : 'bg-white text-gray-800 border-gray-200 rounded-bl-xs shadow-2xs'
+                    }`}
+                  >
+                    <span className="truncate flex-1 font-medium">{msg.fileName || 'File'}</span>
+                    <a
+                      href={api.getMediaUrl(msg.mediaUrl)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1 hover:opacity-80"
+                    >
+                      ⬇️
+                    </a>
+                  </div>
+                ) : (
+                  <div
+                    className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${
+                      msg.isMe
+                        ? 'bg-[#2563eb] text-white rounded-br-xs'
+                        : 'bg-white text-gray-800 border border-gray-200/80 rounded-bl-xs shadow-2xs'
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
+                )}
                 <span className="text-[9px] text-gray-400 mt-0.5 px-1">{msg.timestamp}</span>
               </div>
             ))}

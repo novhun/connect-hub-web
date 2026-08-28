@@ -26,6 +26,8 @@ import {
   RegisterModal,
   GroupsView,
   GroupDetailModal,
+  EditGroupModal,
+  GroupMembersModal,
   UserProfileModal,
   SettingsView,
   NotificationsPopover,
@@ -156,6 +158,8 @@ export default function App() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [viewingProfileUserId, setViewingProfileUserId] = useState<string | null>(initialRoute.profileUserId || null);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
+  const [editingGroup, setEditingGroup] = useState<Group | null>(null);
+  const [viewingMembersGroup, setViewingMembersGroup] = useState<Group | null>(null);
 
   // Central Router Navigation Function
   const setActiveTab = (tab: string, param?: string | null, replace = false) => {
@@ -234,12 +238,12 @@ export default function App() {
           } catch (_) { }
         }
 
-        // Fetch Posts, Stories, Groups, Online Users, Notifications, Friend Requests in parallel
-        const [postsRes, storiesRes, groupsRes, usersRes, notifsRes, friendReqRes] = await Promise.allSettled([
+        // Fetch Posts, Stories, Groups, Friends, Notifications, Friend Requests in parallel
+        const [postsRes, storiesRes, groupsRes, friendsRes, notifsRes, friendReqRes] = await Promise.allSettled([
           api.getFeed(),
           api.getStories(),
           api.getGroups(),
-          api.getUsers(),
+          friendsApi.getFriends(),
           api.getNotifications(),
           friendsApi.getRequests('incoming'),
         ]);
@@ -254,8 +258,8 @@ export default function App() {
         if (groupsRes.status === 'fulfilled' && Array.isArray(groupsRes.value)) {
           setGroups(groupsRes.value);
         }
-        if (usersRes.status === 'fulfilled' && Array.isArray(usersRes.value)) {
-          setOnlineMembers(usersRes.value);
+        if (friendsRes.status === 'fulfilled' && Array.isArray(friendsRes.value)) {
+          setOnlineMembers(friendsRes.value);
         }
         if (notifsRes.status === 'fulfilled' && Array.isArray(notifsRes.value)) {
           setNotifications(notifsRes.value);
@@ -297,19 +301,19 @@ export default function App() {
     setIsRegisterModalOpen(false);
     realtime.connect(user.id);
     try {
-      const [fetchedPosts, fetchedStories, fetchedGroups, fetchedNotifs, fetchedUsers, fetchedFriendReqs] = await Promise.all([
+      const [fetchedPosts, fetchedStories, fetchedGroups, fetchedNotifs, fetchedFriends, fetchedFriendReqs] = await Promise.all([
         api.getFeed(),
         api.getStories(),
         api.getGroups(),
         api.getNotifications(),
-        api.getUsers({ onlyOnline: true }),
+        friendsApi.getFriends(),
         friendsApi.getRequests('incoming'),
       ]);
       if (fetchedPosts?.length) setPosts(fetchedPosts);
       if (fetchedStories?.length) setStories(fetchedStories);
       if (fetchedGroups?.length) setGroups(fetchedGroups);
       if (fetchedNotifs?.length) setNotifications(fetchedNotifs);
-      if (fetchedUsers?.length) setOnlineMembers(fetchedUsers);
+      if (fetchedFriends?.length) setOnlineMembers(fetchedFriends);
       setFriendRequestsCount(fetchedFriendReqs?.length || 0);
     } catch (_) { }
   };
@@ -581,6 +585,21 @@ export default function App() {
     }
   };
 
+  const handleGroupCreated = (newGroup: Group) => {
+    setGroups((prev) => [newGroup, ...prev]);
+  };
+
+  const handleGroupUpdated = (updatedGroup: Group) => {
+    setGroups((prev) => prev.map((g) => (g.id === updatedGroup.id ? updatedGroup : g)));
+  };
+
+  const handleGroupDeleted = (groupId: string) => {
+    setGroups((prev) => prev.filter((g) => g.id !== groupId));
+    if (selectedGroupId === groupId) {
+      handleCloseGroup();
+    }
+  };
+
   const handleMarkAllNotifsRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     try {
@@ -820,6 +839,11 @@ export default function App() {
               currentUser={currentUser}
               onSelectGroup={(g) => handleSelectGroup(g.id)}
               onToggleJoinGroup={handleToggleJoinGroup}
+              onViewProfile={(id) => handleOpenProfile(id)}
+              onStartChat={(user) => setActiveChatUser(user)}
+              onGroupCreated={handleGroupCreated}
+              onGroupUpdated={handleGroupUpdated}
+              onGroupDeleted={handleGroupDeleted}
             />
           )}
 
@@ -832,6 +856,7 @@ export default function App() {
               onlineMembers={onlineMembers}
               currentUser={currentUser}
               onStartCall={handleStartRealCall}
+              onNavigate={setActiveTab}
             />
           )}
 
@@ -839,6 +864,7 @@ export default function App() {
             <CallsView
               onlineMembers={onlineMembers}
               onStartCall={handleStartRealCall}
+              onNavigate={setActiveTab}
             />
           )}
 
@@ -870,7 +896,13 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'events' && <EventsView />}
+          {activeTab === 'events' && (
+            <EventsView
+              currentUser={currentUser}
+              onViewProfile={(id) => handleOpenProfile(id)}
+              onStartChat={(user) => setActiveChatUser(user)}
+            />
+          )}
 
           {activeTab === 'notifications' && (
             <NotificationsView
@@ -957,6 +989,7 @@ export default function App() {
         <StoryViewerModal
           stories={stories}
           initialIndex={activeStoryIndex}
+          currentUser={currentUser}
           onClose={() => setActiveStoryIndex(null)}
         />
       )}
@@ -1033,6 +1066,29 @@ export default function App() {
           onEditPost={(p) => setEditingPost(p)}
           onDeletePost={handleDeletePost}
           onViewProfile={(id) => handleOpenProfile(id)}
+          onEditGroup={(g) => setEditingGroup(g)}
+          onDeleteGroup={(g) => handleGroupDeleted(g.id)}
+          onViewMembers={(g) => setViewingMembersGroup(g)}
+        />
+      )}
+
+      {/* 10b. Edit Group Modal */}
+      {editingGroup && (
+        <EditGroupModal
+          group={editingGroup}
+          onClose={() => setEditingGroup(null)}
+          onGroupUpdated={handleGroupUpdated}
+        />
+      )}
+
+      {/* 10c. Group Members Modal */}
+      {viewingMembersGroup && (
+        <GroupMembersModal
+          group={viewingMembersGroup}
+          currentUser={currentUser}
+          onClose={() => setViewingMembersGroup(null)}
+          onSelectUser={(u) => handleOpenProfile(u.id)}
+          onStartChat={(user) => setActiveChatUser(user)}
         />
       )}
 

@@ -77,6 +77,18 @@ export interface Group {
   recentPostsCount?: number;
 }
 
+export interface GroupMember {
+  id: string;
+  userId: string;
+  name: string;
+  username: string;
+  avatar?: string;
+  headline?: string;
+  role: string;
+  isCreator: boolean;
+  joinedAt: string;
+}
+
 export interface NotificationItem {
   id: string;
   user: User;
@@ -93,6 +105,11 @@ export interface DirectMessage {
   text: string;
   timestamp: string;
   isMe: boolean;
+  messageType?: 'text' | 'voice' | 'file' | 'sticker' | 'image';
+  mediaUrl?: string;
+  fileName?: string;
+  fileSize?: string;
+  duration?: string;
 }
 
 export interface ChatSession {
@@ -116,6 +133,17 @@ export interface EventItem {
   isAttending: boolean;
   isCreator: boolean;
   creatorId: string;
+}
+
+export interface EventMember {
+  id: string;
+  userId: string;
+  name: string;
+  username: string;
+  avatar?: string;
+  headline?: string;
+  isCreator: boolean;
+  joinedAt: string;
 }
 
 export interface SupportMessage {

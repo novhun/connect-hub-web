@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight, Heart, Send, Pause, Play } from 'lucide-react';
 import { Story, User } from '../types';
 import { useLanguage } from '../context/LanguageContext';
+import { formatNotificationTimestamp } from '../utils/notificationHelpers';
 
 interface StoryViewerModalProps {
   stories: Story[];
   initialIndex: number;
   onClose: () => void;
-  currentUser: User;
+  currentUser?: User;
 }
 
 export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
@@ -16,7 +17,7 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
   onClose,
   currentUser,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [progress, setProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -127,14 +128,15 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
                   {currentStory.userName}
                 </h4>
                 <p className="text-gray-300 text-[11px] font-medium">
-                  {currentStory.timestamp}
+                  {formatNotificationTimestamp(currentStory.timestamp, language)}
                 </p>
               </div>
             </div>
 
             <button
               onClick={() => setIsPaused(!isPaused)}
-              className="text-white/80 hover:text-white p-1.5 rounded-full hover:bg-black/30 transition-colors"
+              title={isPaused ? t('modals.playStory') : t('modals.pauseStory')}
+              className="text-white/80 hover:text-white p-1.5 rounded-full hover:bg-black/30 transition-colors cursor-pointer"
             >
               {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
             </button>
@@ -146,12 +148,12 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
           <div 
             className="w-1/3 h-full cursor-pointer"
             onClick={handlePrev}
-            title="Previous Story"
+            title={t('modals.previousStory')}
           />
           <div 
             className="w-2/3 h-full cursor-pointer"
             onClick={handleNext}
-            title="Next Story"
+            title={t('modals.nextStory')}
           />
         </div>
 
@@ -179,7 +181,7 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
             {replyText && (
               <button 
                 type="submit"
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-white p-1 hover:text-blue-400"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-white p-1 hover:text-blue-400 cursor-pointer"
               >
                 <Send className="w-4 h-4" />
               </button>
@@ -188,7 +190,7 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
 
           <button
             onClick={() => setHasLiked(!hasLiked)}
-            className={`p-2.5 rounded-full border border-white/20 backdrop-blur-md transition-all active:scale-125 ${
+            className={`p-2.5 rounded-full border border-white/20 backdrop-blur-md transition-all active:scale-125 cursor-pointer ${
               hasLiked ? 'bg-red-500 text-white' : 'bg-white/20 text-white hover:bg-white/30'
             }`}
           >
@@ -200,7 +202,8 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
         {currentIndex > 0 && (
           <button
             onClick={handlePrev}
-            className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 z-20"
+            title={t('modals.previousStory')}
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 z-20 cursor-pointer"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
@@ -208,7 +211,8 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
         {currentIndex < stories.length - 1 && (
           <button
             onClick={handleNext}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 z-20"
+            title={t('modals.nextStory')}
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 z-20 cursor-pointer"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
