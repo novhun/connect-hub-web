@@ -11,8 +11,9 @@ interface ExploreViewProps {
   currentUser: User;
   onSelectGroup: (group: Group) => void;
   onReact: (postId: string, reaction: ReactionType | null) => void;
-  onAddComment: (postId: string, commentText: string) => void;
+  onAddComment: (postId: string, commentText: string, parentId?: string) => void;
   onViewProfile?: (userId: string) => void;
+  onSelectPost?: (postId: string) => void;
 }
 
 const HASHTAG_RE = /#[\p{L}\p{N}_]+/gu;
@@ -25,6 +26,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   onReact,
   onAddComment,
   onViewProfile,
+  onSelectPost,
 }) => {
   const { t } = useLanguage();
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -44,7 +46,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   }, [posts]);
 
   const visualPosts = useMemo(
-    () => posts.filter((p) => p.images && p.images.length > 0).slice(0, 9),
+    () => posts.filter((p) => p.images && p.images.length > 0).slice(0, 12),
     [posts]
   );
 
@@ -111,6 +113,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                   onShare={() => {}}
                   onSaveToggle={() => {}}
                   onViewProfile={onViewProfile}
+                  onSelectPost={onSelectPost}
                 />
               ))
             )}
@@ -122,22 +125,24 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
         <h2 className="font-bold text-gray-900 text-sm mb-4">{t('explore.trendingVisuals')}</h2>
         {visualPosts.length === 0 ? (
-          <p className="text-xs text-gray-400 py-4 text-center">{t('explore.noVisuals')}</p>
+          <p className="text-xs text-gray-400 text-center py-6">{t('explore.noVisualsYet')}</p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
             {visualPosts.map((post) => (
               <div
                 key={post.id}
-                onClick={() => setPreviewPost(post)}
-                className="h-44 rounded-xl overflow-hidden group relative cursor-pointer shadow-2xs"
+                onClick={() => (onSelectPost ? onSelectPost(post.id) : setPreviewPost(post))}
+                className="aspect-square rounded-xl overflow-hidden cursor-pointer relative group bg-gray-100"
               >
                 <img
-                  src={api.getMediaUrl(post.images![0])}
-                  alt={post.content.slice(0, 40)}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  src={api.getMediaUrl(post.images[0])}
+                  alt={post.content.slice(0, 30)}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                  <span className="text-white text-xs font-medium line-clamp-2">{post.author.name}</span>
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                  <span className="text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                    {post.likes} ❤️
+                  </span>
                 </div>
               </div>
             ))}
@@ -145,7 +150,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
         )}
       </div>
 
-      {/* Discover Groups (real, not-yet-joined communities) */}
+      {/* Discover Groups */}
       {discoverGroups.length > 0 && (
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
           <div className="flex items-center gap-2 mb-4">
@@ -166,7 +171,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                 />
                 <div className="min-w-0">
                   <h4 className="text-sm font-bold text-gray-900 truncate">{group.name}</h4>
-                  <span className="text-xs text-gray-400">{group.membersCount}</span>
+                  <span className="text-xs text-gray-400">{group.membersCount} members</span>
                 </div>
               </div>
             ))}
@@ -197,6 +202,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
               onShare={() => {}}
               onSaveToggle={() => {}}
               onViewProfile={onViewProfile}
+              onSelectPost={onSelectPost}
             />
           </div>
         </div>

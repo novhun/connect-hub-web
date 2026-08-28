@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Post, Story, Group, User, ReactionType, NotificationItem } from './types';
+import { Post, Comment, Story, Group, User, ReactionType, NotificationItem } from './types';
 import {
   Header,
   LeftSidebar,
@@ -14,6 +14,7 @@ import {
   CreatePostModal,
   EditPostModal,
   ShareModal,
+  PostDetailModal,
   SavedPostsView,
   ExploreView,
   MessagesView,
@@ -58,6 +59,7 @@ interface ParsedRoute {
   tab: string;
   groupId?: string;
   profileUserId?: string;
+  postId?: string;
   isAuthLogin?: boolean;
   isAuthRegister?: boolean;
 }
@@ -84,6 +86,10 @@ function parseBrowserRoute(pathname: string): ParsedRoute {
     const parts = clean.split('/');
     return { tab: 'home', profileUserId: parts[1] };
   }
+  if (clean.startsWith('posts') || clean.startsWith('post')) {
+    const parts = clean.split('/');
+    return { tab: 'home', postId: parts[1] };
+  }
   if (clean === 'login') return { tab: 'home', isAuthLogin: true };
   if (clean === 'register' || clean === 'signup') return { tab: 'home', isAuthRegister: true };
   return { tab: 'home' };
@@ -104,6 +110,7 @@ function formatRoutePath(tab: string, param?: string | null): string {
   if (tab === 'login') return '/login';
   if (tab === 'register') return '/register';
   if (tab === 'profile') return param ? `/profile/${param}` : '/';
+  if (tab === 'posts' || tab === 'post') return param ? `/posts/${param}` : '/';
   return `/${tab}`;
 }
 
@@ -157,6 +164,7 @@ export default function App() {
   const selectedGroupDetail = selectedGroupId ? groups.find((g) => g.id === selectedGroupId) || null : null;
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [viewingProfileUserId, setViewingProfileUserId] = useState<string | null>(initialRoute.profileUserId || null);
+  const [viewingPostId, setViewingPostId] = useState<string | null>(initialRoute.postId || null);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
   const [viewingMembersGroup, setViewingMembersGroup] = useState<Group | null>(null);
@@ -181,6 +189,7 @@ export default function App() {
       setActiveTabState(route.tab);
       if (route.groupId) setSelectedGroupId(route.groupId);
       if (route.profileUserId) setViewingProfileUserId(route.profileUserId);
+      if (route.postId) setViewingPostId(route.postId);
       if (route.isAuthLogin) setIsLoginModalOpen(true);
       if (route.isAuthRegister) setIsRegisterModalOpen(true);
     };
@@ -441,29 +450,48 @@ export default function App() {
     }
   };
 
-  const handleAddComment = async (postId: string, commentText: string) => {
+  const handleAddComment = async (postId: string, commentText: string, parentId?: string) => {
     // Optimistic UI update
-    const tempComment = {
+    const tempComment: Comment = {
       id: `comm-${Date.now()}`,
       user: currentUser,
       content: commentText,
-      timestamp: 'Just now',
+      timestamp: language === 'km' ? 'អម្បាញ់មិញ' : 'Just now',
       likes: 0,
+      parentId,
+      replies: [],
     };
 
     setPosts((prev) =>
       prev.map((post) => {
         if (post.id !== postId) return post;
+        if (!parentId) {
+          return {
+            ...post,
+            comments: [...post.comments, tempComment],
+          };
+        }
+        const insertReply = (comments: Comment[]): Comment[] => {
+          return comments.map((c) => {
+            if (c.id === parentId) {
+              return { ...c, replies: [...(c.replies || []), tempComment] };
+            }
+            if (c.replies && c.replies.length > 0) {
+              return { ...c, replies: insertReply(c.replies) };
+            }
+            return c;
+          });
+        };
         return {
           ...post,
-          comments: [...post.comments, tempComment],
+          comments: insertReply(post.comments),
         };
       })
     );
 
     // Call API
     try {
-      const updatedPost = await api.addComment(postId, commentText);
+      const updatedPost = await api.addComment(postId, commentText, parentId);
       if (updatedPost) {
         setPosts((prev) => prev.map((p) => (p.id === postId ? updatedPost : p)));
       }
@@ -537,33 +565,46 @@ export default function App() {
     }
   };
 
-  const handleShareToFeed = async (postToShare: Post, caption: string) => {
-    const sharedPost: Post = {
-      id: `post-shared-${Date.now()}`,
-      author: currentUser,
-      timestamp: 'Just now',
-      privacy: 'public',
-      content: caption ? `${caption}\n\n[Shared from ${postToShare.author.name}]:\n${postToShare.content}` : `[Shared from ${postToShare.author.name}]:\n${postToShare.content}`,
-      images: postToShare.images,
-      reactionCounts: { like: 0, love: 0, care: 0, haha: 0, wow: 0, sad: 0, angry: 0 },
-      userReaction: null,
-      comments: [],
-      sharesCount: 0,
-    };
-    setPosts((prev) => [sharedPost, ...prev]);
-    setPosts((prev) =>
-      prev.map((p) => (p.id === postToShare.id ? { ...p, sharesCount: p.sharesCount + 1 } : p))
-    );
-
+  const handleShareToFeed = async (
+    postToShare: Post,
+    caption: string,
+    privacy: 'public' | 'friends' | 'only_me' = 'public'
+  ) => {
     try {
-      await api.createPost({
-        content: sharedPost.content,
-        privacy: 'public',
-        images: sharedPost.images,
+      const created = await api.createPost({
+        content: caption ? caption.trim() : '',
+        privacy,
+        sharedPostId: postToShare.id,
       });
-      await api.sharePost(postToShare.id);
+
+      const formattedCreated: Post = {
+        ...created,
+        sharedPost: created.sharedPost || postToShare,
+      };
+
+      setPosts((prev) => [formattedCreated, ...prev]);
+      setPosts((prev) =>
+        prev.map((p) => (p.id === postToShare.id ? { ...p, sharesCount: (p.sharesCount || 0) + 1 } : p))
+      );
     } catch (e) {
       console.warn('Share post API notice:', e);
+      const fallbackPost: Post = {
+        id: `post-shared-${Date.now()}`,
+        author: currentUser,
+        timestamp: 'Just now',
+        privacy,
+        content: caption || '',
+        reactionCounts: { like: 0, love: 0, care: 0, haha: 0, wow: 0, sad: 0, angry: 0 },
+        userReaction: null,
+        comments: [],
+        sharesCount: 0,
+        sharedPostId: postToShare.id,
+        sharedPost: postToShare,
+      };
+      setPosts((prev) => [fallbackPost, ...prev]);
+      setPosts((prev) =>
+        prev.map((p) => (p.id === postToShare.id ? { ...p, sharesCount: (p.sharesCount || 0) + 1 } : p))
+      );
     }
   };
 
@@ -674,6 +715,18 @@ export default function App() {
 
   const handleCloseGroup = () => {
     setSelectedGroupId(null);
+    const path = formatRoutePath(activeTab);
+    if (window.location.pathname !== path) window.history.pushState(null, '', path);
+  };
+
+  const handleOpenPostDetail = (postId: string) => {
+    setViewingPostId(postId);
+    const path = formatRoutePath('posts', postId);
+    if (window.location.pathname !== path) window.history.pushState(null, '', path);
+  };
+
+  const handleClosePostDetail = () => {
+    setViewingPostId(null);
     const path = formatRoutePath(activeTab);
     if (window.location.pathname !== path) window.history.pushState(null, '', path);
   };
@@ -814,6 +867,7 @@ export default function App() {
                       onEditPost={(p) => setEditingPost(p)}
                       onDeletePost={handleDeletePost}
                       onViewProfile={(id) => handleOpenProfile(id)}
+                      onSelectPost={handleOpenPostDetail}
                     />
                   ))
                 )}
@@ -830,6 +884,7 @@ export default function App() {
               onAddComment={handleAddComment}
               currentUser={currentUser}
               onViewProfile={(id) => handleOpenProfile(id)}
+              onSelectPost={handleOpenPostDetail}
             />
           )}
 
@@ -879,6 +934,7 @@ export default function App() {
               onEditPost={(p) => setEditingPost(p)}
               onDeletePost={handleDeletePost}
               onViewProfile={(id) => handleOpenProfile(id)}
+              onSelectPost={handleOpenPostDetail}
             />
           )}
 
@@ -893,6 +949,7 @@ export default function App() {
               onEditPost={(p) => setEditingPost(p)}
               onDeletePost={handleDeletePost}
               onViewProfile={(id) => handleOpenProfile(id)}
+              onSelectPost={handleOpenPostDetail}
             />
           )}
 
@@ -1046,7 +1103,9 @@ export default function App() {
       {sharingPost && (
         <ShareModal
           post={sharingPost}
+          currentUser={currentUser}
           onClose={() => setSharingPost(null)}
+          onShareToFeed={handleShareToFeed}
           onShare={handleShareToFeed}
         />
       )}
@@ -1069,6 +1128,7 @@ export default function App() {
           onEditGroup={(g) => setEditingGroup(g)}
           onDeleteGroup={(g) => handleGroupDeleted(g.id)}
           onViewMembers={(g) => setViewingMembersGroup(g)}
+          onSelectPost={handleOpenPostDetail}
         />
       )}
 
@@ -1117,6 +1177,23 @@ export default function App() {
             handleCloseProfile();
             handleStartRealCall(user, type);
           }}
+          onSelectPost={handleOpenPostDetail}
+        />
+      )}
+
+      {/* 12b. Post Detail Modal */}
+      {viewingPostId && (
+        <PostDetailModal
+          postId={viewingPostId}
+          initialPost={posts.find((p) => p.id === viewingPostId) || null}
+          currentUser={currentUser}
+          onClose={handleClosePostDetail}
+          onReact={handleReactPost}
+          onAddComment={handleAddComment}
+          onShare={(p) => setSharingPost(p)}
+          onSaveToggle={handleSaveToggle}
+          onViewProfile={(id) => handleOpenProfile(id)}
+          onSelectPost={handleOpenPostDetail}
         />
       )}
 

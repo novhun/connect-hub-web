@@ -27,7 +27,7 @@ class ApiService {
     return `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
   }
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  public async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const headers: Record<string, string> = {
       ...(options.headers as Record<string, string>),
     };
@@ -142,6 +142,10 @@ class ApiService {
     return this.request<Post[]>(`/posts${qStr}`);
   }
 
+  async getPostById(postId: string): Promise<Post> {
+    return this.request<Post>(`/posts/${postId}`);
+  }
+
   async createPost(data: {
     content: string;
     privacy?: 'public' | 'friends' | 'only_me';
@@ -149,6 +153,7 @@ class ApiService {
     feeling?: string;
     location?: string;
     taggedGroup?: string;
+    sharedPostId?: string;
   }): Promise<Post> {
     return this.request<Post>('/posts', {
       method: 'POST',
@@ -163,11 +168,24 @@ class ApiService {
     });
   }
 
-  async addComment(postId: string, content: string): Promise<Post> {
+  async addComment(postId: string, content: string, parentId?: string): Promise<Post> {
     return this.request<Post>(`/posts/${postId}/comments`, {
       method: 'POST',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, parentId }),
     });
+  }
+
+  async reactComment(
+    commentId: string,
+    reaction: ReactionType | null
+  ): Promise<{ success: boolean; isLiked: boolean; userReaction: ReactionType | null }> {
+    return this.request<{ success: boolean; isLiked: boolean; userReaction: ReactionType | null }>(
+      `/posts/comments/${commentId}/react`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ reaction }),
+      }
+    );
   }
 
   async toggleCommentLike(commentId: string): Promise<{ isLiked: boolean }> {

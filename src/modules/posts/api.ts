@@ -5,14 +5,23 @@ export const postsApi = {
   getFeed: (filters?: PostFeedFilter): Promise<Post[]> => {
     return api.getFeed(filters);
   },
+  getPostById: (postId: string): Promise<Post> => {
+    return api.getPostById(postId);
+  },
   createPost: (data: CreatePostPayload): Promise<Post> => {
     return api.createPost(data);
   },
   reactPost: (postId: string, reaction: ReactionType | null): Promise<Post> => {
     return api.reactPost(postId, reaction);
   },
-  addComment: (postId: string, content: string): Promise<Post> => {
-    return api.addComment(postId, content);
+  addComment: (postId: string, content: string, parentId?: string): Promise<Post> => {
+    return api.addComment(postId, content, parentId);
+  },
+  reactComment: (
+    commentId: string,
+    reaction: ReactionType | null
+  ): Promise<{ success: boolean; isLiked: boolean; userReaction: ReactionType | null }> => {
+    return api.reactComment(commentId, reaction);
   },
   toggleCommentLike: (commentId: string): Promise<{ isLiked: boolean }> => {
     return api.toggleCommentLike(commentId);

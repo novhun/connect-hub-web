@@ -9,6 +9,7 @@ export interface CreatePostPayload {
   feeling?: string;
   location?: string;
   taggedGroup?: string;
+  sharedPostId?: string;
 }
 
 export interface PostFeedFilter {

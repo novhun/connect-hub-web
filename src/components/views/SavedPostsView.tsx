@@ -8,12 +8,13 @@ interface SavedPostsViewProps {
   posts: Post[];
   currentUser: User;
   onReact: (postId: string, reaction: any) => void;
-  onAddComment: (postId: string, commentText: string) => void;
+  onAddComment: (postId: string, commentText: string, parentId?: string) => void;
   onShare: (post: Post) => void;
   onSaveToggle: (postId: string) => void;
   onEditPost?: (post: Post) => void;
   onDeletePost?: (postId: string) => void;
   onViewProfile?: (userId: string) => void;
+  onSelectPost?: (postId: string) => void;
 }
 
 export const SavedPostsView: React.FC<SavedPostsViewProps> = ({
@@ -26,6 +27,7 @@ export const SavedPostsView: React.FC<SavedPostsViewProps> = ({
   onEditPost,
   onDeletePost,
   onViewProfile,
+  onSelectPost,
 }) => {
   const { t, language } = useLanguage();
   const savedPosts = posts.filter((p) => p.isSaved);
@@ -79,6 +81,7 @@ export const SavedPostsView: React.FC<SavedPostsViewProps> = ({
               onEditPost={onEditPost}
               onDeletePost={onDeletePost}
               onViewProfile={onViewProfile}
+              onSelectPost={onSelectPost}
             />
           ))}
         </div>

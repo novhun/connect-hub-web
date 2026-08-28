@@ -16,7 +16,9 @@ import {
   Check, 
   X, 
   Edit3, 
-  Trash2
+  Trash2,
+  Repeat,
+  Languages
 } from 'lucide-react';
 import { Post, ReactionType, User } from '../types';
 import { useLanguage } from '../context/LanguageContext';
@@ -24,17 +26,21 @@ import { api } from '../services/api';
 import { formatNotificationTimestamp } from '../utils/notificationHelpers';
 import { getYouTubeVideoId, extractUrls, isVideoFile } from '../utils/mediaHelpers';
 import { VideoEmbedPlayer } from './VideoEmbedPlayer';
+import { copyToClipboard } from '../utils/clipboard';
+import { CommentItem } from './CommentItem';
+import { detectLanguage, translatePostContent } from '../utils/translator';
 
 interface PostCardProps {
   post: Post;
   currentUser: User;
   onReact: (postId: string, reaction: ReactionType | null) => void;
-  onAddComment: (postId: string, commentText: string) => void;
+  onAddComment: (postId: string, commentText: string, parentId?: string) => void;
   onShare: (post: Post) => void;
   onSaveToggle: (postId: string) => void;
   onEditPost?: (post: Post) => void;
   onDeletePost?: (postId: string) => void;
   onViewProfile?: (userId: string) => void;
+  onSelectPost?: (postId: string) => void;
 }
 
 export const PostCard: React.FC<PostCardProps> = ({
@@ -47,6 +53,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   onEditPost,
   onDeletePost,
   onViewProfile,
+  onSelectPost,
 }) => {
   const { t, language } = useLanguage();
   const [showReactionsPicker, setShowReactionsPicker] = useState(false);
@@ -58,6 +65,64 @@ export const PostCard: React.FC<PostCardProps> = ({
   const [copiedLink, setCopiedLink] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Auto-Translation state
+  const [isTranslated, setIsTranslated] = useState(false);
+  const [translatedContent, setTranslatedContent] = useState<string | null>(null);
+  const [detectedLang, setDetectedLang] = useState<'km' | 'en' | 'unknown'>('unknown');
+
+  // Shared post translation state
+  const [isSharedTranslated, setIsSharedTranslated] = useState(false);
+  const [translatedSharedContent, setTranslatedSharedContent] = useState<string | null>(null);
+  const [detectedSharedLang, setDetectedSharedLang] = useState<'km' | 'en' | 'unknown'>('unknown');
+
+  useEffect(() => {
+    if (!post.content || !post.content.trim()) return;
+    const lang = detectLanguage(post.content);
+    setDetectedLang(lang);
+
+    if (lang !== 'unknown' && lang !== language) {
+      let cancelled = false;
+      translatePostContent(post.content, language as 'km' | 'en')
+        .then((res) => {
+          if (!cancelled && res && res !== post.content) {
+            setTranslatedContent(res);
+            setIsTranslated(true);
+          }
+        })
+        .catch((err) => console.warn('Auto translate error:', err));
+      return () => {
+        cancelled = true;
+      };
+    } else {
+      setIsTranslated(false);
+      setTranslatedContent(null);
+    }
+  }, [post.content, language]);
+
+  useEffect(() => {
+    if (!post.sharedPost?.content || !post.sharedPost.content.trim()) return;
+    const lang = detectLanguage(post.sharedPost.content);
+    setDetectedSharedLang(lang);
+
+    if (lang !== 'unknown' && lang !== language) {
+      let cancelled = false;
+      translatePostContent(post.sharedPost.content, language as 'km' | 'en')
+        .then((res) => {
+          if (!cancelled && res && res !== post.sharedPost!.content) {
+            setTranslatedSharedContent(res);
+            setIsSharedTranslated(true);
+          }
+        })
+        .catch((err) => console.warn('Auto translate shared post error:', err));
+      return () => {
+        cancelled = true;
+      };
+    } else {
+      setIsSharedTranslated(false);
+      setTranslatedSharedContent(null);
+    }
+  }, [post.sharedPost?.content, language]);
 
   const REACTIONS: { type: ReactionType; label: string; icon: string; color: string }[] = [
     { type: 'like', label: t('posts.like'), icon: '👍', color: 'text-blue-600' },
@@ -110,10 +175,15 @@ export const PostCard: React.FC<PostCardProps> = ({
     setNewCommentText('');
   };
 
-  const handleCopyLink = () => {
-    navigator.clipboard?.writeText?.(window.location.href);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
+  const handleCopyLink = async () => {
+    const postPermalink = typeof window !== 'undefined'
+      ? `${window.location.origin}/posts/${post.id}`
+      : `https://connecthub.kh/posts/${post.id}`;
+    const success = await copyToClipboard(postPermalink);
+    if (success) {
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
+    }
     setShowMenu(false);
   };
 
@@ -147,6 +217,16 @@ export const PostCard: React.FC<PostCardProps> = ({
               >
                 {post.author.name}
               </h3>
+              {post.sharedPost && (
+                <button
+                  type="button"
+                  onClick={() => onSelectPost?.(post.sharedPost!.id)}
+                  className="text-xs text-gray-500 font-normal flex items-center gap-1 hover:text-blue-600 hover:underline cursor-pointer transition-colors"
+                >
+                  <Repeat className="w-3 h-3 text-blue-600 shrink-0" />
+                  <span>{language === 'km' ? 'បានចែករំលែកការបង្ហោះ' : 'shared a post'}</span>
+                </button>
+              )}
               {post.taggedGroup && (
                 <span className="text-xs text-gray-500">
                   {language === 'km' ? 'ក្នុងក្រុម ' : 'in '} 
@@ -254,9 +334,32 @@ export const PostCard: React.FC<PostCardProps> = ({
 
       {/* BEGIN: Post Content */}
       <div className="mb-3">
-        <p className="text-sm text-gray-800 mb-3 whitespace-pre-line leading-relaxed font-normal">
-          {post.content}
+        <p className="text-sm text-gray-800 mb-1.5 whitespace-pre-line leading-relaxed font-normal">
+          {isTranslated && translatedContent ? translatedContent : post.content}
         </p>
+
+        {/* Translation Banner & Toggle for Main Post */}
+        {detectedLang !== 'unknown' && detectedLang !== language && translatedContent && (
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-3 select-none">
+            <span className="flex items-center gap-1 text-[11px] text-gray-400">
+              <Languages className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <span>
+                {isTranslated
+                  ? (language === 'km' ? 'បានបកប្រែពីភាសាអង់គ្លេស • ' : 'Translated from Khmer • ')
+                  : (language === 'km' ? 'ភាសាដើម៖ អង់គ្លេស • ' : 'Original: Khmer • ')}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsTranslated(!isTranslated)}
+              className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer transition-colors"
+            >
+              {isTranslated
+                ? (language === 'km' ? 'មើលអត្ថបទដើម' : 'See original')
+                : (language === 'km' ? 'មើលការបកប្រែ' : 'See translation')}
+            </button>
+          </div>
+        )}
 
         {/* Embedded YouTube / Video Link Player */}
         {(() => {
@@ -272,6 +375,148 @@ export const PostCard: React.FC<PostCardProps> = ({
             </div>
           );
         })()}
+
+        {/* Embedded Shared Post Box */}
+        {post.sharedPost && (
+          <div 
+            onClick={() => onSelectPost?.(post.sharedPost!.id)}
+            className="mt-3 border border-gray-200/90 rounded-2xl p-3.5 sm:p-4 bg-gray-50/50 hover:bg-gray-100/80 transition-all space-y-3 shadow-2xs cursor-pointer group"
+          >
+            {/* Embedded Post Author Header */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <img
+                  src={api.getMediaUrl(post.sharedPost.author.avatar)}
+                  alt={post.sharedPost.author.name}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewProfile?.(post.sharedPost!.author.id);
+                  }}
+                  className="w-8 h-8 rounded-full border border-gray-200 object-cover shrink-0 cursor-pointer"
+                />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onViewProfile?.(post.sharedPost!.author.id);
+                      }}
+                      className="text-xs font-bold text-gray-900 group-hover:text-blue-600 transition-colors hover:underline cursor-pointer truncate"
+                    >
+                      {post.sharedPost.author.name}
+                    </span>
+                    {post.sharedPost.taggedGroup && (
+                      <span className="text-[11px] text-gray-500 truncate">
+                        {language === 'km' ? 'ក្នុងក្រុម ' : 'in '} 
+                        <span className="font-semibold text-blue-600">{post.sharedPost.taggedGroup}</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 text-[11px] text-gray-400">
+                    <span>{formatNotificationTimestamp(post.sharedPost.timestamp, language)}</span>
+                    {post.sharedPost.location && (
+                      <>
+                        <span>•</span>
+                        <span>📍 {post.sharedPost.location}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <span className="text-[11px] font-semibold text-blue-600 group-hover:underline shrink-0">
+                {language === 'km' ? 'មើលការបង្ហោះ →' : 'View Post →'}
+              </span>
+            </div>
+
+            {/* Embedded Post Text Content */}
+            {post.sharedPost.content && (
+              <div>
+                <p className="text-xs sm:text-sm text-gray-800 whitespace-pre-line leading-relaxed">
+                  {isSharedTranslated && translatedSharedContent
+                    ? translatedSharedContent
+                    : post.sharedPost.content}
+                </p>
+
+                {/* Translation Banner & Toggle for Shared Post */}
+                {detectedSharedLang !== 'unknown' && detectedSharedLang !== language && translatedSharedContent && (
+                  <div 
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center gap-1.5 text-xs text-gray-500 mt-1 select-none"
+                  >
+                    <span className="flex items-center gap-1 text-[11px] text-gray-400">
+                      <Languages className="w-3 h-3 text-blue-500 shrink-0" />
+                      <span>
+                        {isSharedTranslated
+                          ? (language === 'km' ? 'បានបកប្រែពីអង់គ្លេស • ' : 'Translated • ')
+                          : (language === 'km' ? 'ភាសាដើម • ' : 'Original • ')}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsSharedTranslated(!isSharedTranslated)}
+                      className="text-[11px] font-semibold text-blue-600 hover:underline cursor-pointer"
+                    >
+                      {isSharedTranslated
+                        ? (language === 'km' ? 'មើលអត្ថបទដើម' : 'See original')
+                        : (language === 'km' ? 'មើលការបកប្រែ' : 'See translation')}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Embedded Post YouTube/Video Player */}
+            {(() => {
+              const urls = extractUrls(post.sharedPost.content || '');
+              const firstYtOrVideoUrl = urls.find((u) => getYouTubeVideoId(u) || isVideoFile(u));
+              if (!firstYtOrVideoUrl) return null;
+              return (
+                <div className="mb-2">
+                  <VideoEmbedPlayer
+                    url={firstYtOrVideoUrl}
+                    onOpenFullscreen={(u) => setLightboxImage(u)}
+                  />
+                </div>
+              );
+            })()}
+
+            {/* Embedded Post Image Gallery */}
+            {post.sharedPost.images && post.sharedPost.images.length > 0 && (
+              <div className="rounded-xl overflow-hidden border border-gray-200/80 shadow-2xs">
+                {post.sharedPost.images.length === 1 && (
+                  <div 
+                    className="h-56 sm:h-72 w-full cursor-pointer overflow-hidden group bg-gray-100"
+                    onClick={() => setLightboxImage(api.getMediaUrl(post.sharedPost!.images![0]))}
+                  >
+                    <img
+                      src={api.getMediaUrl(post.sharedPost.images[0])}
+                      alt="Shared post visual"
+                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                    />
+                  </div>
+                )}
+                {post.sharedPost.images.length > 1 && (
+                  <div className="grid grid-cols-2 gap-1 h-52 sm:h-64">
+                    {post.sharedPost.images.slice(0, 4).map((img, idx) => (
+                      <div
+                        key={idx}
+                        className="h-full cursor-pointer overflow-hidden group bg-gray-100"
+                        onClick={() => setLightboxImage(api.getMediaUrl(img))}
+                      >
+                        <img
+                          src={api.getMediaUrl(img)}
+                          alt={`Shared post visual ${idx + 1}`}
+                          className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Dynamic Image Gallery Grid */}
         {post.images && post.images.length > 0 && (
@@ -526,44 +771,16 @@ export const PostCard: React.FC<PostCardProps> = ({
 
           {/* List Comments */}
           {post.comments.length > 0 && (
-            <div className="space-y-2.5 pt-1">
+            <div className="space-y-3 pt-1">
               {post.comments.map((comment) => (
-                <div key={comment.id} className="flex gap-2.5 items-start group">
-                  <img
-                    src={comment.user.avatar}
-                    alt={comment.user.name}
-                    onClick={() => onViewProfile?.(comment.user.id)}
-                    className="w-8 h-8 rounded-full object-cover border border-gray-200 shrink-0 mt-0.5 cursor-pointer"
-                  />
-                  <div className="flex-1">
-                    <div className="bg-[#f0f2f5] rounded-2xl px-3.5 py-2 inline-block max-w-full">
-                      <span
-                        onClick={() => onViewProfile?.(comment.user.id)}
-                        className="font-semibold text-xs text-gray-900 block hover:underline cursor-pointer"
-                      >
-                        {comment.user.name}
-                      </span>
-                      <p className="text-sm text-gray-800 mt-0.5 leading-snug break-words">
-                        {comment.content}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3 text-[11px] text-gray-500 mt-1 ml-2 font-medium">
-                      <span>{comment.timestamp}</span>
-                      <button 
-                        onClick={() => {}}
-                        className="hover:underline font-semibold text-gray-600 hover:text-blue-600 cursor-pointer"
-                      >
-                        {t('posts.like')} {comment.likes > 0 && `(${comment.likes})`}
-                      </button>
-                      <button 
-                        onClick={() => setNewCommentText(`@${comment.user.name} `)}
-                        className="hover:underline font-semibold text-gray-600 hover:text-blue-600 cursor-pointer"
-                      >
-                        {t('posts.reply')}
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <CommentItem
+                  key={comment.id}
+                  comment={comment}
+                  postId={post.id}
+                  currentUser={currentUser}
+                  onViewProfile={onViewProfile}
+                  onAddReply={(parentId, replyText) => onAddComment(post.id, replyText, parentId)}
+                />
               ))}
             </div>
           )}

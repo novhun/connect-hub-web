@@ -12,7 +12,7 @@ interface GroupDetailModalProps {
   onClose: () => void;
   onToggleJoin: (groupId: string) => void;
   onReact: (postId: string, reaction: ReactionType | null) => void;
-  onAddComment: (postId: string, commentText: string) => void;
+  onAddComment: (postId: string, commentText: string, parentId?: string) => void;
   onShare?: (post: Post) => void;
   onSaveToggle?: (postId: string) => void;
   onEditPost?: (post: Post) => void;
@@ -21,6 +21,7 @@ interface GroupDetailModalProps {
   onEditGroup?: (group: Group) => void;
   onDeleteGroup?: (group: Group) => void;
   onViewMembers?: (group: Group) => void;
+  onSelectPost?: (postId: string) => void;
 }
 
 export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
@@ -39,6 +40,7 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
   onEditGroup,
   onDeleteGroup,
   onViewMembers,
+  onSelectPost,
 }) => {
   const { t, language } = useLanguage();
   const isJoined = !!group.joined;
@@ -188,6 +190,7 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
                     onEditPost={onEditPost}
                     onDeletePost={onDeletePost}
                     onViewProfile={onViewProfile}
+                    onSelectPost={onSelectPost}
                   />
                 ))}
               </div>

@@ -16,7 +16,8 @@ import {
   Video, 
   Loader2, 
   Globe, 
-  Image as ImageIcon 
+  Image as ImageIcon,
+  Repeat
 } from 'lucide-react';
 import { User, Post, FriendStatusInfo } from '../types';
 import { useLanguage } from '../context/LanguageContext';
@@ -31,6 +32,7 @@ interface UserProfileModalProps {
   onUpdateProfile?: (patch: Partial<User>) => void;
   onOpenChat?: (user: User) => void;
   onStartCall?: (user: User, type: 'audio' | 'video') => void;
+  onSelectPost?: (postId: string) => void;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -40,6 +42,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onUpdateProfile,
   onOpenChat,
   onStartCall,
+  onSelectPost,
 }) => {
   const { t, language } = useLanguage();
   const isOwnProfile = userId === currentUser.id;
@@ -389,16 +392,57 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {posts.map((p) => (
-                  <div key={p.id} className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2">
-                    <p className="text-xs text-gray-800 line-clamp-2">{p.content}</p>
-                    {p.images && p.images.length > 0 && (
-                      <img
-                        src={api.getMediaUrl(p.images[0])}
-                        alt="Post thumbnail"
-                        className="h-28 w-full object-cover rounded-lg"
-                      />
-                    )}
-                    <span className="text-[10px] text-gray-400 block">{p.timestamp}</span>
+                  <div 
+                    key={p.id} 
+                    onClick={() => onSelectPost?.(p.id)}
+                    className="p-3.5 bg-gray-50/80 hover:bg-gray-100/80 rounded-xl border border-gray-100 space-y-2 flex flex-col justify-between hover:shadow-xs transition-all cursor-pointer group"
+                  >
+                    <div className="space-y-2">
+                      {p.sharedPost && (
+                        <div className="flex items-center gap-1 text-[11px] text-blue-600 font-semibold bg-blue-50/80 px-2 py-0.5 rounded-md w-fit">
+                          <Repeat className="w-3 h-3" />
+                          <span>{language === 'km' ? 'បានចែករំលែកការបង្ហោះ' : 'Shared post'}</span>
+                        </div>
+                      )}
+
+                      {p.content && (
+                        <p className="text-xs text-gray-800 line-clamp-3 leading-relaxed group-hover:text-blue-900 transition-colors">{p.content}</p>
+                      )}
+
+                      {/* If shared post, show embedded preview */}
+                      {p.sharedPost && (
+                        <div className="p-2.5 rounded-lg bg-white border border-gray-200/70 space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <img
+                              src={api.getMediaUrl(p.sharedPost.author.avatar)}
+                              alt={p.sharedPost.author.name}
+                              className="w-5 h-5 rounded-full object-cover"
+                            />
+                            <span className="text-[11px] font-bold text-gray-800 truncate">{p.sharedPost.author.name}</span>
+                          </div>
+                          {p.sharedPost.content && (
+                            <p className="text-[11px] text-gray-600 line-clamp-2">{p.sharedPost.content}</p>
+                          )}
+                          {p.sharedPost.images && p.sharedPost.images.length > 0 && (
+                            <img
+                              src={api.getMediaUrl(p.sharedPost.images[0])}
+                              alt="Shared post thumbnail"
+                              className="h-20 w-full object-cover rounded-md mt-1"
+                            />
+                          )}
+                        </div>
+                      )}
+
+                      {p.images && p.images.length > 0 && !p.sharedPost && (
+                        <img
+                          src={api.getMediaUrl(p.images[0])}
+                          alt="Post thumbnail"
+                          className="h-28 w-full object-cover rounded-lg"
+                        />
+                      )}
+                    </div>
+
+                    <span className="text-[10px] text-gray-400 block pt-1 border-t border-gray-100">{p.timestamp}</span>
                   </div>
                 ))}
               </div>

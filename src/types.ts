@@ -32,6 +32,9 @@ export interface Comment {
   timestamp: string;
   likes: number;
   isLiked?: boolean;
+  userReaction?: ReactionType | null;
+  parentId?: string;
+  replies?: Comment[];
 }
 
 export type ReactionType = 'like' | 'love' | 'care' | 'haha' | 'wow' | 'sad' | 'angry';
@@ -61,6 +64,8 @@ export interface Post {
   feeling?: string;
   location?: string;
   taggedGroup?: string;
+  sharedPostId?: string;
+  sharedPost?: Post;
 }
 
 export interface Group {
