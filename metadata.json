@@ -1,0 +1,6 @@
+{
+  "name": "ConnectHub",
+  "description": "Multilingual social media platform supporting English and Khmer (ភាសាខ្មែរ) with Kantumruy Pro font, stories, rich feed, direct messaging, audio/video rooms, and community groups.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

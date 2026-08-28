@@ -1,0 +1,22 @@
+{
+  "title": "Account & Privacy Settings",
+  "subtitle": "Manage preferences, notifications, and security options.",
+  "notificationsSounds": "Notifications & Sounds",
+  "pushNotifications": "Push Notifications",
+  "pushNotificationsDesc": "Receive alerts when friends like or comment on your posts",
+  "callRingtone": "Incoming Call Ringtone",
+  "callRingtoneDesc": "Play audio ringtones for incoming voice & video calls",
+  "privacyVisibility": "Privacy & Visibility",
+  "defaultAudience": "Default Post Audience",
+  "defaultAudienceDesc": "Who can view new posts you publish to the main feed",
+  "publicEveryone": "🌐 Public (Everyone)",
+  "friendsOnly": "👥 Friends Only",
+  "onlyMeOption": "🔒 Only Me",
+  "onlineStatus": "Online Status",
+  "onlineStatusDesc": "Show green status badge when you're active on ConnectHub",
+  "enabled": "Enabled",
+  "saveChanges": "Save Changes",
+  "savedSuccess": "Preferences saved!",
+  "languagePreference": "Language Preference",
+  "selectLanguage": "Select display language"
+}

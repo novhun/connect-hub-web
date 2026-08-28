@@ -1,0 +1,13 @@
+{
+  "createStory": "Create Story",
+  "sharePhotoOrText": "Share a photo or write something",
+  "whatsOnYourMind": "What's on your mind, {name}?",
+  "photoVideo": "Photo/Video",
+  "feelingActivity": "Feeling/Activity",
+  "checkIn": "Check In",
+  "liveVideo": "Live Video",
+  "stories": "Stories",
+  "noPostsFound": "No posts found matching \"{query}\"",
+  "clearSearch": "Clear search filter",
+  "endOfFeed": "You're all caught up! Check back later for new posts."
+}
