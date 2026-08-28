@@ -37,14 +37,19 @@ export const extractUrls = (text: string): string[] => {
 // Check if a URL points to a video file
 export const isVideoFile = (urlOrFileName: string): boolean => {
   if (!urlOrFileName) return false;
-  const lower = urlOrFileName.toLowerCase().split('?')[0];
+  const lower = urlOrFileName.toLowerCase().trim();
+  if (lower.startsWith('data:video/')) return true;
+  const cleanUrl = lower.split('?')[0].split('#')[0];
   return (
-    lower.endsWith('.mp4') ||
-    lower.endsWith('.webm') ||
-    lower.endsWith('.mov') ||
-    lower.endsWith('.m4v') ||
-    lower.endsWith('.ogv') ||
-    lower.endsWith('.mkv')
+    cleanUrl.endsWith('.mp4') ||
+    cleanUrl.endsWith('.webm') ||
+    cleanUrl.endsWith('.mov') ||
+    cleanUrl.endsWith('.m4v') ||
+    cleanUrl.endsWith('.ogv') ||
+    cleanUrl.endsWith('.mkv') ||
+    cleanUrl.endsWith('.avi') ||
+    cleanUrl.endsWith('.flv') ||
+    cleanUrl.includes('/video/')
   );
 };
 

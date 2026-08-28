@@ -481,34 +481,61 @@ export const PostCard: React.FC<PostCardProps> = ({
               );
             })()}
 
-            {/* Embedded Post Image Gallery */}
+            {/* Embedded Post Image / Video Gallery */}
             {post.sharedPost.images && post.sharedPost.images.length > 0 && (
               <div className="rounded-xl overflow-hidden border border-gray-200/80 shadow-2xs">
                 {post.sharedPost.images.length === 1 && (
-                  <div 
-                    className="h-56 sm:h-72 w-full cursor-pointer overflow-hidden group bg-gray-100"
-                    onClick={() => setLightboxImage(api.getMediaUrl(post.sharedPost!.images![0]))}
-                  >
-                    <img
-                      src={api.getMediaUrl(post.sharedPost.images[0])}
-                      alt="Shared post visual"
-                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
-                    />
-                  </div>
+                  isVideoFile(post.sharedPost.images[0]) ? (
+                    <div className="w-full bg-black flex items-center justify-center">
+                      <video
+                        src={api.getMediaUrl(post.sharedPost.images[0])}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="w-full max-h-80 object-contain bg-black"
+                      />
+                    </div>
+                  ) : (
+                    <div 
+                      className="h-56 sm:h-72 w-full cursor-pointer overflow-hidden group bg-gray-100"
+                      onClick={() => setLightboxImage(api.getMediaUrl(post.sharedPost!.images![0]))}
+                    >
+                      <img
+                        src={api.getMediaUrl(post.sharedPost.images[0])}
+                        alt="Shared post visual"
+                        className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                      />
+                    </div>
+                  )
                 )}
                 {post.sharedPost.images.length > 1 && (
                   <div className="grid grid-cols-2 gap-1 h-52 sm:h-64">
                     {post.sharedPost.images.slice(0, 4).map((img, idx) => (
                       <div
                         key={idx}
-                        className="h-full cursor-pointer overflow-hidden group bg-gray-100"
+                        className="h-full cursor-pointer overflow-hidden group bg-black flex items-center justify-center relative"
                         onClick={() => setLightboxImage(api.getMediaUrl(img))}
                       >
-                        <img
-                          src={api.getMediaUrl(img)}
-                          alt={`Shared post visual ${idx + 1}`}
-                          className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
-                        />
+                        {isVideoFile(img) ? (
+                          <>
+                            <video
+                              src={api.getMediaUrl(img)}
+                              muted
+                              playsInline
+                              preload="metadata"
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/30 flex items-center justify-center pointer-events-none">
+                              <span className="text-white text-xs font-bold bg-black/60 px-2 py-0.5 rounded-full">▶ VIDEO</span>
+                            </div>
+                          </>
+                        ) : (
+                          <img
+                            src={api.getMediaUrl(img)}
+                            alt={`Shared post visual ${idx + 1}`}
+                            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                          />
+                        )}
                       </div>
                     ))}
                   </div>
@@ -518,20 +545,32 @@ export const PostCard: React.FC<PostCardProps> = ({
           </div>
         )}
 
-        {/* Dynamic Image Gallery Grid */}
+        {/* Dynamic Image & Video Gallery Grid */}
         {post.images && post.images.length > 0 && (
           <div className="rounded-xl overflow-hidden shadow-xs border border-gray-100">
             {post.images.length === 1 && (
-              <div 
-                className="h-80 w-full cursor-pointer overflow-hidden group bg-gray-100"
-                onClick={() => setLightboxImage(api.getMediaUrl(post.images![0]))}
-              >
-                <img
-                  src={api.getMediaUrl(post.images[0])}
-                  alt="Post image"
-                  className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
-                />
-              </div>
+              isVideoFile(post.images[0]) ? (
+                <div className="w-full bg-black rounded-xl overflow-hidden shadow-xs">
+                  <video
+                    src={api.getMediaUrl(post.images[0])}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    className="w-full max-h-[480px] object-contain mx-auto"
+                  />
+                </div>
+              ) : (
+                <div 
+                  className="h-80 w-full cursor-pointer overflow-hidden group bg-gray-100"
+                  onClick={() => setLightboxImage(api.getMediaUrl(post.images![0]))}
+                >
+                  <img
+                    src={api.getMediaUrl(post.images[0])}
+                    alt="Post image"
+                    className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                  />
+                </div>
+              )
             )}
 
             {post.images.length === 2 && (
@@ -539,14 +578,24 @@ export const PostCard: React.FC<PostCardProps> = ({
                 {post.images.map((img, idx) => (
                   <div
                     key={idx}
-                    className="h-full cursor-pointer overflow-hidden group bg-gray-100"
-                    onClick={() => setLightboxImage(api.getMediaUrl(img))}
+                    className="h-full cursor-pointer overflow-hidden group bg-black flex items-center justify-center relative"
+                    onClick={() => !isVideoFile(img) && setLightboxImage(api.getMediaUrl(img))}
                   >
-                    <img
-                      src={api.getMediaUrl(img)}
-                      alt={`Post visual ${idx + 1}`}
-                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
-                    />
+                    {isVideoFile(img) ? (
+                      <video
+                        src={api.getMediaUrl(img)}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <img
+                        src={api.getMediaUrl(img)}
+                        alt={`Post visual ${idx + 1}`}
+                        className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                      />
+                    )}
                   </div>
                 ))}
               </div>
@@ -556,35 +605,65 @@ export const PostCard: React.FC<PostCardProps> = ({
             {post.images.length === 3 && (
               <div className="grid grid-cols-2 gap-1 h-64 sm:h-72">
                 <div 
-                  className="h-full cursor-pointer overflow-hidden group bg-gray-100"
-                  onClick={() => setLightboxImage(api.getMediaUrl(post.images![0]))}
+                  className="h-full cursor-pointer overflow-hidden group bg-gray-100 relative"
+                  onClick={() => !isVideoFile(post.images![0]) && setLightboxImage(api.getMediaUrl(post.images![0]))}
                 >
-                  <img
-                    src={api.getMediaUrl(post.images[0])}
-                    alt="Hike image 1"
-                    className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
-                  />
+                  {isVideoFile(post.images[0]) ? (
+                    <video
+                      src={api.getMediaUrl(post.images[0])}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <img
+                      src={api.getMediaUrl(post.images[0])}
+                      alt="Visual 1"
+                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                    />
+                  )}
                 </div>
                 <div className="grid grid-rows-2 gap-1 h-full">
                   <div 
-                    className="h-full cursor-pointer overflow-hidden group bg-gray-100"
-                    onClick={() => setLightboxImage(api.getMediaUrl(post.images![1]))}
+                    className="h-full cursor-pointer overflow-hidden group bg-gray-100 relative"
+                    onClick={() => !isVideoFile(post.images![1]) && setLightboxImage(api.getMediaUrl(post.images![1]))}
                   >
-                    <img
-                      src={api.getMediaUrl(post.images[1])}
-                      alt="Hike image 2"
-                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
-                    />
+                    {isVideoFile(post.images[1]) ? (
+                      <video
+                        src={api.getMediaUrl(post.images[1])}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <img
+                        src={api.getMediaUrl(post.images[1])}
+                        alt="Visual 2"
+                        className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                      />
+                    )}
                   </div>
                   <div 
-                    className="h-full cursor-pointer overflow-hidden group bg-gray-100"
-                    onClick={() => setLightboxImage(api.getMediaUrl(post.images![2]))}
+                    className="h-full cursor-pointer overflow-hidden group bg-gray-100 relative"
+                    onClick={() => !isVideoFile(post.images![2]) && setLightboxImage(api.getMediaUrl(post.images![2]))}
                   >
-                    <img
-                      src={api.getMediaUrl(post.images[2])}
-                      alt="Hike image 3"
-                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
-                    />
+                    {isVideoFile(post.images[2]) ? (
+                      <video
+                        src={api.getMediaUrl(post.images[2])}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <img
+                        src={api.getMediaUrl(post.images[2])}
+                        alt="Visual 3"
+                        className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                      />
+                    )}
                   </div>
                 </div>
               </div>
@@ -593,35 +672,65 @@ export const PostCard: React.FC<PostCardProps> = ({
             {post.images.length > 3 && (
               <div className="grid grid-cols-2 gap-1 h-72">
                 <div 
-                  className="h-full cursor-pointer overflow-hidden group bg-gray-100"
-                  onClick={() => setLightboxImage(api.getMediaUrl(post.images![0]))}
+                  className="h-full cursor-pointer overflow-hidden group bg-gray-100 relative"
+                  onClick={() => !isVideoFile(post.images![0]) && setLightboxImage(api.getMediaUrl(post.images![0]))}
                 >
-                  <img
-                    src={api.getMediaUrl(post.images[0])}
-                    alt="Visual 1"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                  />
+                  {isVideoFile(post.images[0]) ? (
+                    <video
+                      src={api.getMediaUrl(post.images[0])}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <img
+                      src={api.getMediaUrl(post.images[0])}
+                      alt="Visual 1"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                    />
+                  )}
                 </div>
                 <div className="grid grid-rows-2 gap-1 h-full">
                   <div 
-                    className="h-full cursor-pointer overflow-hidden group bg-gray-100"
-                    onClick={() => setLightboxImage(api.getMediaUrl(post.images![1]))}
+                    className="h-full cursor-pointer overflow-hidden group bg-gray-100 relative"
+                    onClick={() => !isVideoFile(post.images![1]) && setLightboxImage(api.getMediaUrl(post.images![1]))}
                   >
-                    <img
-                      src={api.getMediaUrl(post.images[1])}
-                      alt="Visual 2"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                    />
+                    {isVideoFile(post.images[1]) ? (
+                      <video
+                        src={api.getMediaUrl(post.images[1])}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <img
+                        src={api.getMediaUrl(post.images[1])}
+                        alt="Visual 2"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+                    )}
                   </div>
                   <div 
                     className="h-full cursor-pointer overflow-hidden relative group bg-gray-100"
-                    onClick={() => setLightboxImage(api.getMediaUrl(post.images![2]))}
+                    onClick={() => !isVideoFile(post.images![2]) && setLightboxImage(api.getMediaUrl(post.images![2]))}
                   >
-                    <img
-                      src={api.getMediaUrl(post.images[2])}
-                      alt="Visual 3"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                    />
+                    {isVideoFile(post.images[2]) ? (
+                      <video
+                        src={api.getMediaUrl(post.images[2])}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <img
+                        src={api.getMediaUrl(post.images[2])}
+                        alt="Visual 3"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+                    )}
                     {post.images.length > 3 && (
                       <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-xl font-bold">
                         +{post.images.length - 2}

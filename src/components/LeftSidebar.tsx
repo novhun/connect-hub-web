@@ -3,6 +3,7 @@ import {
   SquarePen,
   Home,
   Compass,
+  Film,
   Bell,
   Mail,
   Phone,
@@ -49,6 +50,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
 
   const navItems = [
     { id: 'home', label: t('sidebar.home'), icon: Home, badge: null, badgeColor: '' },
+    { id: 'clips', label: t('sidebar.clips') || 'Clips', icon: Film, badge: 'HOT', badgeColor: 'bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-xs text-[10px] font-extrabold' },
     { id: 'about', label: t('sidebar.welcome'), icon: Sparkles, badge: 'v1.0', badgeColor: 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs' },
     { id: 'explore', label: t('sidebar.explore'), icon: Compass, badge: null, badgeColor: '' },
     { id: 'notifications', label: t('sidebar.notifications'), icon: Bell, badge: unreadNotifsCount > 0 ? unreadNotifsCount : null, badgeColor: 'bg-[#2563eb] text-white' },

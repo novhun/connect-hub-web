@@ -17,6 +17,7 @@ import {
   PostDetailModal,
   SavedPostsView,
   ExploreView,
+  ClipsView,
   MessagesView,
   ChatFloatingWindow,
   CallsView,
@@ -71,6 +72,9 @@ function parseBrowserRoute(pathname: string): ParsedRoute {
   }
   if (clean.startsWith('explore')) return { tab: 'explore' };
   if (clean.startsWith('notifications') || clean.startsWith('notifs')) return { tab: 'notifications' };
+  if (clean.startsWith('clips') || clean.startsWith('reels') || clean.startsWith('shorts')) return { tab: 'clips' };
+  if (clean.startsWith('explore')) return { tab: 'explore' };
+  if (clean.startsWith('notifications')) return { tab: 'notifications' };
   if (clean.startsWith('groups')) {
     const parts = clean.split('/');
     return { tab: 'groups', groupId: parts[1] };
@@ -97,6 +101,7 @@ function parseBrowserRoute(pathname: string): ParsedRoute {
 
 function formatRoutePath(tab: string, param?: string | null): string {
   if (tab === 'home') return '/';
+  if (tab === 'clips') return '/clips';
   if (tab === 'explore') return '/explore';
   if (tab === 'notifications') return '/notifications';
   if (tab === 'groups') return param ? `/groups/${param}` : '/groups';
@@ -873,6 +878,19 @@ export default function App() {
                 )}
               </div>
             </div>
+          )}
+
+          {activeTab === 'clips' && (
+            <ClipsView
+              currentUser={currentUser}
+              posts={posts}
+              onReact={handleReactPost}
+              onAddComment={handleAddComment}
+              onSaveToggle={handleSaveToggle}
+              onSharePost={(p) => setSharingPost(p)}
+              onSelectPost={handleOpenPostDetail}
+              onViewProfile={(id) => handleOpenProfile(id)}
+            />
           )}
 
           {activeTab === 'explore' && (

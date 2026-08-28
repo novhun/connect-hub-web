@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { 
   X, 
   Image as ImageIcon, 
+  Video,
+  Film,
   Smile, 
   MapPin, 
   Globe, 
@@ -15,6 +17,7 @@ import {
 import { Post, User, Group } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
+import { isVideoFile } from '../utils/mediaHelpers';
 
 interface CreatePostModalProps {
   currentUser: User;
@@ -307,16 +310,19 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   {isUploading ? (
                     <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
                   ) : (
-                    <Plus className="w-6 h-6 text-blue-600" />
+                    <div className="flex items-center gap-1.5 text-blue-600">
+                      <Plus className="w-5 h-5" />
+                      <Video className="w-5 h-5" />
+                    </div>
                   )}
                   <span className="text-xs font-semibold text-gray-700">
                     {isUploading 
                       ? (language === 'km' ? 'កំពុងបញ្ចូលទៅ Server...' : 'Uploading to Server...')
-                      : (language === 'km' ? 'បញ្ចូលរូបភាពពីឧបករណ៍របស់អ្នក' : 'Upload from device')}
+                      : (language === 'km' ? 'បញ្ចូលរូបថត ឬវីដេអូពីឧបករណ៍របស់អ្នក' : 'Upload photos or videos from device')}
                   </span>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/*,video/*"
                     multiple
                     onChange={handleFileUpload}
                     className="hidden"
@@ -327,12 +333,24 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 {images.length > 0 && (
                   <div className="grid grid-cols-3 gap-2">
                     {images.map((img, idx) => (
-                      <div key={idx} className="relative group rounded-lg overflow-hidden border border-gray-200 aspect-video">
-                        <img src={img} alt="Post preview" className="w-full h-full object-cover" />
+                      <div key={idx} className="relative group rounded-lg overflow-hidden border border-gray-200 aspect-video bg-black flex items-center justify-center">
+                        {isVideoFile(img) ? (
+                          <div className="w-full h-full relative">
+                            <video src={img} className="w-full h-full object-cover" preload="metadata" />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
+                              <Video className="w-6 h-6 text-white drop-shadow" />
+                            </div>
+                            <span className="absolute bottom-1 left-1 bg-black/75 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">
+                              VIDEO
+                            </span>
+                          </div>
+                        ) : (
+                          <img src={img} alt="Post preview" className="w-full h-full object-cover" />
+                        )}
                         <button
                           type="button"
                           onClick={() => handleRemoveImage(idx)}
-                          className="absolute top-1 right-1 bg-black/60 hover:bg-red-600 text-white p-1 rounded-full opacity-90 transition-all cursor-pointer"
+                          className="absolute top-1 right-1 bg-black/60 hover:bg-red-600 text-white p-1 rounded-full opacity-90 transition-all cursor-pointer z-10"
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>

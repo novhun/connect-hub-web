@@ -9,3 +9,4 @@ export { PostDetailModal } from '../../components/PostDetailModal';
 export { CommentItem } from '../../components/CommentItem';
 export { SavedPostsView } from '../../components/views/SavedPostsView';
 export { ExploreView } from '../../components/views/ExploreView';
+export { ClipsView } from '../../components/views/ClipsView';

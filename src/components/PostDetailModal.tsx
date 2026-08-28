@@ -513,20 +513,30 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
             </div>
           )}
 
-          {/* Post Image Gallery */}
+          {/* Post Image & Video Gallery */}
           {post.images && post.images.length > 0 && (
             <div className="rounded-xl overflow-hidden shadow-xs border border-gray-100 space-y-2">
               {post.images.map((img, idx) => (
                 <div 
                   key={idx}
-                  className="w-full max-h-96 cursor-pointer overflow-hidden group bg-gray-100 rounded-xl"
-                  onClick={() => setLightboxImage(api.getMediaUrl(img))}
+                  className="w-full overflow-hidden group bg-black rounded-xl"
+                  onClick={() => !isVideoFile(img) && setLightboxImage(api.getMediaUrl(img))}
                 >
-                  <img
-                    src={api.getMediaUrl(img)}
-                    alt={`Post image ${idx + 1}`}
-                    className="w-full h-full object-cover group-hover:scale-[1.01] transition-transform duration-200"
-                  />
+                  {isVideoFile(img) ? (
+                    <video
+                      src={api.getMediaUrl(img)}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="w-full max-h-[500px] object-contain mx-auto"
+                    />
+                  ) : (
+                    <img
+                      src={api.getMediaUrl(img)}
+                      alt={`Post image ${idx + 1}`}
+                      className="w-full max-h-96 object-cover group-hover:scale-[1.01] transition-transform duration-200 cursor-pointer"
+                    />
+                  )}
                 </div>
               ))}
             </div>

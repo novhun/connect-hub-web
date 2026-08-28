@@ -1,9 +1,10 @@
 import React, { useRef } from 'react';
-import { Plus, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Plus, ChevronRight, ChevronLeft, Video } from 'lucide-react';
 import { Story, User } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { formatNotificationTimestamp } from '../utils/notificationHelpers';
 import { api } from '../services/api';
+import { isVideoFile } from '../utils/mediaHelpers';
 
 interface StoriesSectionProps {
   currentUser: User;
@@ -68,36 +69,62 @@ export const StoriesSection: React.FC<StoriesSectionProps> = ({
           </div>
 
           {/* User Stories */}
-          {stories.map((story, index) => (
-            <div
-              key={story.id}
-              onClick={() => onViewStory(story, index)}
-              className="w-28 h-44 rounded-xl shrink-0 story-card-bg cursor-pointer group shadow-xs overflow-hidden select-none relative hover:shadow-md transition-all"
-              style={{ backgroundImage: `url(${api.getMediaUrl(story.storyImage)})` }}
-            >
-              {/* Overlay */}
-              <div className="absolute inset-0 story-overlay rounded-xl group-hover:bg-black/30 transition-colors" />
+          {stories.map((story, index) => {
+            const isVideo = isVideoFile(story.storyImage);
+            return (
+              <div
+                key={story.id}
+                onClick={() => onViewStory(story, index)}
+                className="w-28 h-44 rounded-xl shrink-0 bg-gray-900 cursor-pointer group shadow-xs overflow-hidden select-none relative hover:shadow-md transition-all"
+              >
+                {/* Background media (video or image) */}
+                {isVideo ? (
+                  <video
+                    src={api.getMediaUrl(story.storyImage)}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    muted
+                    playsInline
+                    preload="metadata"
+                  />
+                ) : (
+                  <img
+                    src={api.getMediaUrl(story.storyImage)}
+                    alt={story.userName}
+                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                )}
 
-              {/* Avatar on Top Left */}
-              <div className="absolute top-2 left-2 w-8 h-8 rounded-full border-2 border-[#3b82f6] overflow-hidden shadow-xs ring-1 ring-white/50">
-                <img
-                  src={api.getMediaUrl(story.userAvatar)}
-                  alt={story.userName}
-                  className="w-full h-full object-cover"
-                />
-              </div>
+                {/* Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/80 group-hover:bg-black/30 transition-colors" />
 
-              {/* Author & Time on Bottom */}
-              <div className="absolute bottom-2.5 left-2.5 right-2 text-white drop-shadow-md">
-                <p className="text-sm font-semibold leading-tight truncate">
-                  {story.userName}
-                </p>
-                <p className="text-[10px] text-gray-200 font-medium">
-                  {formatNotificationTimestamp(story.timestamp, language)}
-                </p>
+                {/* Avatar on Top Left */}
+                <div className="absolute top-2 left-2 w-8 h-8 rounded-full border-2 border-[#3b82f6] overflow-hidden shadow-xs ring-1 ring-white/50 z-10">
+                  <img
+                    src={api.getMediaUrl(story.userAvatar)}
+                    alt={story.userName}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+
+                {/* Video Badge on Top Right */}
+                {isVideo && (
+                  <span className="absolute top-2 right-2 bg-black/60 backdrop-blur-xs p-1 rounded-full text-white z-10 shadow-xs">
+                    <Video className="w-3 h-3" />
+                  </span>
+                )}
+
+                {/* Author & Time on Bottom */}
+                <div className="absolute bottom-2.5 left-2.5 right-2 text-white drop-shadow-md z-10">
+                  <p className="text-sm font-semibold leading-tight truncate">
+                    {story.userName}
+                  </p>
+                  <p className="text-[10px] text-gray-200 font-medium">
+                    {formatNotificationTimestamp(story.timestamp, language)}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Scroll Next Button */}

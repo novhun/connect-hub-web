@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { X, Share2, Link, Check, Loader2, Repeat, Copy } from 'lucide-react';
+import { X, Share2, Link, Check, Loader2, Repeat, Copy, Video } from 'lucide-react';
 import { Post, User } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
 import { copyToClipboard } from '../utils/clipboard';
+import { isVideoFile } from '../utils/mediaHelpers';
 
 const DEFAULT_AVATAR = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
 
@@ -61,6 +62,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
       setIsSharing(false);
     }
   };
+
+  const previewImages = post?.images?.length ? post.images : (post?.sharedPost?.images || []);
 
   return (
     <div 
@@ -168,14 +171,30 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 </p>
               )}
 
-              {/* Original Post Image Thumbnail */}
-              {post.images && post.images.length > 0 && (
-                <div className="rounded-xl overflow-hidden border border-gray-200 max-h-48 bg-black/5">
-                  <img
-                    src={api.getMediaUrl(post.images[0])}
-                    alt="Original post preview"
-                    className="w-full h-full object-cover"
-                  />
+              {/* Original Post Media (Image or Video Thumbnail) */}
+              {previewImages && previewImages.length > 0 && (
+                <div className="rounded-xl overflow-hidden border border-gray-200 max-h-56 bg-black relative shadow-inner">
+                  {isVideoFile(previewImages[0]) ? (
+                    <>
+                      <video
+                        src={api.getMediaUrl(previewImages[0])}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="w-full max-h-56 object-contain bg-black"
+                      />
+                      <div className="absolute top-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 backdrop-blur-xs pointer-events-none border border-white/20">
+                        <Video className="w-3 h-3 text-rose-400" />
+                        <span>VIDEO</span>
+                      </div>
+                    </>
+                  ) : (
+                    <img
+                      src={api.getMediaUrl(previewImages[0])}
+                      alt="Original post preview"
+                      className="w-full max-h-56 object-cover"
+                    />
+                  )}
                 </div>
               )}
             </div>

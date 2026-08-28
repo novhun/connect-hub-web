@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Heart, Send, Pause, Play } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, ChevronLeft, ChevronRight, Heart, Send, Pause, Play, Volume2, VolumeX, Eye } from 'lucide-react';
 import { Story, User } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { formatNotificationTimestamp } from '../utils/notificationHelpers';
+import { api } from '../services/api';
+import { isVideoFile } from '../utils/mediaHelpers';
 
 interface StoryViewerModalProps {
   stories: Story[];
@@ -21,18 +23,40 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [progress, setProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [hasLiked, setHasLiked] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const currentStory = stories[currentIndex];
+  const isVideo = isVideoFile(currentStory?.storyImage || '');
+  const viewCount = 18 + ((currentIndex * 7 + 13) % 45);
 
   useEffect(() => {
     setProgress(0);
     setHasLiked(false);
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      if (!isPaused) {
+        videoRef.current.play().catch(() => {});
+      }
+    }
   }, [currentIndex]);
 
+  // Video play/pause effect
   useEffect(() => {
-    if (isPaused) return;
+    if (videoRef.current) {
+      if (isPaused) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play().catch(() => {});
+      }
+    }
+  }, [isPaused]);
+
+  // Photo timer progression (only if not a video)
+  useEffect(() => {
+    if (isVideo || isPaused) return;
 
     const interval = setInterval(() => {
       setProgress((prev) => {
@@ -50,7 +74,15 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
     }, 50);
 
     return () => clearInterval(interval);
-  }, [currentIndex, isPaused, stories.length, onClose]);
+  }, [currentIndex, isPaused, isVideo, stories.length, onClose]);
+
+  const handleVideoTimeUpdate = () => {
+    if (videoRef.current && videoRef.current.duration) {
+      const current = videoRef.current.currentTime;
+      const total = videoRef.current.duration;
+      setProgress((current / total) * 100);
+    }
+  };
 
   const handleNext = () => {
     if (currentIndex < stories.length - 1) {
@@ -72,6 +104,8 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
     setReplyText('');
   };
 
+  if (!currentStory) return null;
+
   return (
     <div 
       className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-2 sm:p-4 select-none backdrop-blur-md animate-in fade-in duration-150"
@@ -88,16 +122,32 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
 
       {/* Main Container */}
       <div 
-        className="relative w-full max-w-sm h-[82vh] max-h-[720px] bg-gray-900 rounded-2xl overflow-hidden shadow-2xl flex flex-col justify-between"
+        className="relative w-full max-w-sm h-[84vh] max-h-[740px] bg-black rounded-2xl overflow-hidden shadow-2xl flex flex-col justify-between"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Background Story Image */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center transition-all duration-300"
-          style={{ backgroundImage: `url(${currentStory.storyImage})` }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60" />
-        </div>
+        {/* Background Story Content (Video or Image) */}
+        {isVideo ? (
+          <div className="absolute inset-0 bg-black flex items-center justify-center overflow-hidden">
+            <video
+              ref={videoRef}
+              src={api.getMediaUrl(currentStory.storyImage)}
+              playsInline
+              autoPlay
+              muted={isMuted}
+              onTimeUpdate={handleVideoTimeUpdate}
+              onEnded={handleNext}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60 pointer-events-none" />
+          </div>
+        ) : (
+          <div 
+            className="absolute inset-0 bg-cover bg-center transition-all duration-300"
+            style={{ backgroundImage: `url(${api.getMediaUrl(currentStory.storyImage)})` }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60 pointer-events-none" />
+          </div>
+        )}
 
         {/* Top Header: Progress bars & User profile */}
         <div className="relative z-10 p-3.5 space-y-2">
@@ -119,27 +169,46 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
           <div className="flex items-center justify-between pt-1">
             <div className="flex items-center gap-2.5">
               <img
-                src={currentStory.userAvatar}
+                src={api.getMediaUrl(currentStory.userAvatar)}
                 alt={currentStory.userName}
                 className="w-9 h-9 rounded-full object-cover border-2 border-blue-500 shadow-xs"
               />
               <div>
-                <h4 className="text-white font-semibold text-sm leading-tight drop-shadow-sm">
-                  {currentStory.userName}
+                <h4 className="text-white font-semibold text-sm leading-tight drop-shadow-sm flex items-center gap-1.5">
+                  <span>{currentStory.userName}</span>
                 </h4>
-                <p className="text-gray-300 text-[11px] font-medium">
-                  {formatNotificationTimestamp(currentStory.timestamp, language)}
-                </p>
+                <div className="flex items-center gap-2 text-gray-300 text-[11px] font-medium">
+                  <span>{formatNotificationTimestamp(currentStory.timestamp, language)}</span>
+                  <span>•</span>
+                  <span className="flex items-center gap-0.5 text-blue-300">
+                    <Eye className="w-3 h-3" />
+                    <span>{viewCount}</span>
+                  </span>
+                </div>
               </div>
             </div>
 
-            <button
-              onClick={() => setIsPaused(!isPaused)}
-              title={isPaused ? t('modals.playStory') : t('modals.pauseStory')}
-              className="text-white/80 hover:text-white p-1.5 rounded-full hover:bg-black/30 transition-colors cursor-pointer"
-            >
-              {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-            </button>
+            {/* Top Action Buttons: Play/Pause, Mute/Unmute */}
+            <div className="flex items-center gap-1">
+              {isVideo && (
+                <button
+                  type="button"
+                  onClick={() => setIsMuted(!isMuted)}
+                  title={isMuted ? 'Unmute' : 'Mute'}
+                  className="text-white/80 hover:text-white p-1.5 rounded-full hover:bg-black/40 transition-colors cursor-pointer"
+                >
+                  {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsPaused(!isPaused)}
+                title={isPaused ? t('modals.playStory') : t('modals.pauseStory')}
+                className="text-white/80 hover:text-white p-1.5 rounded-full hover:bg-black/40 transition-colors cursor-pointer"
+              >
+                {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -160,7 +229,7 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
         {/* Caption */}
         {currentStory.caption && (
           <div className="relative z-10 px-4 py-2 text-center">
-            <p className="text-white text-sm font-medium drop-shadow-sm bg-black/40 backdrop-blur-xs py-1.5 px-3 rounded-full inline-block">
+            <p className="text-white text-sm font-medium drop-shadow-sm bg-black/50 backdrop-blur-xs py-1.5 px-3.5 rounded-full inline-block max-w-[90%]">
               {currentStory.caption}
             </p>
           </div>
