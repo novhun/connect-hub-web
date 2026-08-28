@@ -15,6 +15,7 @@ interface GroupDetailModalProps {
   onAddComment: (postId: string, commentText: string) => void;
   onShare?: (post: Post) => void;
   onSaveToggle?: (postId: string) => void;
+  onEditPost?: (post: Post) => void;
   onDeletePost?: (postId: string) => void;
   onViewProfile?: (userId: string) => void;
 }
@@ -29,6 +30,7 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
   onAddComment,
   onShare,
   onSaveToggle,
+  onEditPost,
   onViewProfile,
   onDeletePost,
 }) => {
@@ -146,6 +148,7 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
                     onAddComment={onAddComment}
                     onShare={onShare || (() => {})}
                     onSaveToggle={onSaveToggle || (() => {})}
+                    onEditPost={onEditPost}
                     onDeletePost={onDeletePost}
                     onViewProfile={onViewProfile}
                   />

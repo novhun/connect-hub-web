@@ -7,21 +7,20 @@ import {
   Globe, 
   Lock, 
   Users, 
-  Sparkles, 
   Plus, 
   Trash2, 
-  Loader2
+  Loader2,
+  Edit3
 } from 'lucide-react';
-import { Post, User, Group } from '../types';
+import { Post, User } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
 
-interface CreatePostModalProps {
+interface EditPostModalProps {
+  post: Post;
   currentUser: User;
   onClose: () => void;
-  onAddPost: (newPost: Post) => void;
-  initialType?: 'photo' | 'feeling' | 'location';
-  groups: Group[];
+  onUpdatePost: (updatedPost: Post) => void;
 }
 
 const PRESET_SAMPLE_PHOTOS = [
@@ -31,24 +30,23 @@ const PRESET_SAMPLE_PHOTOS = [
   'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=800&auto=format&fit=crop&q=80',
 ];
 
-export const CreatePostModal: React.FC<CreatePostModalProps> = ({
+export const EditPostModal: React.FC<EditPostModalProps> = ({
+  post,
   currentUser,
   onClose,
-  onAddPost,
-  initialType,
-  groups,
+  onUpdatePost,
 }) => {
-  const { t, language } = useLanguage();
-  const [content, setContent] = useState('');
-  const [privacy, setPrivacy] = useState<'public' | 'friends' | 'only_me'>('public');
-  const [selectedGroup, setSelectedGroup] = useState<string>('');
-  const [feeling, setFeeling] = useState<string>('');
-  const [location, setLocation] = useState<string>('');
-  const [images, setImages] = useState<string[]>([]);
+  const { language } = useLanguage();
+  const [content, setContent] = useState(post.content || '');
+  const [privacy, setPrivacy] = useState<'public' | 'friends' | 'only_me'>(post.privacy || 'public');
+  const [feeling, setFeeling] = useState<string>(post.feeling || '');
+  const [location, setLocation] = useState<string>(post.location || '');
+  const [images, setImages] = useState<string[]>(post.images || []);
   const [isUploading, setIsUploading] = useState(false);
-  const [showFeelingPicker, setShowFeelingPicker] = useState(initialType === 'feeling');
-  const [showLocationInput, setShowLocationInput] = useState(initialType === 'location');
-  const [showPhotoSection, setShowPhotoSection] = useState(initialType === 'photo');
+  const [isSaving, setIsSaving] = useState(false);
+  const [showFeelingPicker, setShowFeelingPicker] = useState(false);
+  const [showLocationInput, setShowLocationInput] = useState(Boolean(post.location));
+  const [showPhotoSection, setShowPhotoSection] = useState(Boolean(post.images && post.images.length > 0));
 
   const FEELINGS = language === 'km' ? [
     '😊 មានអារម្មណ៍សប្បាយរីករាយ',
@@ -66,36 +64,38 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     '🎨 Designing',
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim() && images.length === 0) return;
 
-    const newPost: Post = {
-      id: `post-${Date.now()}`,
-      author: currentUser,
-      timestamp: language === 'km' ? 'ទើបតែមុននេះ' : 'Just now',
-      privacy,
-      content: content.trim(),
-      images: images.length > 0 ? images : undefined,
-      feeling: feeling || undefined,
-      location: location || undefined,
-      taggedGroup: selectedGroup || undefined,
-      reactionCounts: {
-        like: 0,
-        love: 0,
-        care: 0,
-        haha: 0,
-        wow: 0,
-        sad: 0,
-        angry: 0,
-      },
-      userReaction: null,
-      comments: [],
-      sharesCount: 0,
-    };
+    setIsSaving(true);
+    try {
+      const updated = await api.updatePost(post.id, {
+        content: content.trim(),
+        privacy,
+        feeling: feeling || undefined,
+        location: location || undefined,
+        images,
+      });
 
-    onAddPost(newPost);
-    onClose();
+      onUpdatePost(updated);
+      onClose();
+    } catch (err: any) {
+      console.warn('Update post API notice:', err);
+      // Fallback local update
+      const fallbackUpdated: Post = {
+        ...post,
+        content: content.trim(),
+        privacy,
+        feeling: feeling || undefined,
+        location: location || undefined,
+        images: images.length > 0 ? images : undefined,
+      };
+      onUpdatePost(fallbackUpdated);
+      onClose();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -144,9 +144,12 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 sm:py-4 border-b border-gray-100">
-          <h3 className="font-bold text-gray-900 text-base sm:text-lg">
-            {language === 'km' ? 'បង្កើតការបង្ហោះ' : 'Create Post'}
-          </h3>
+          <div className="flex items-center gap-2">
+            <Edit3 className="w-5 h-5 text-blue-600" />
+            <h3 className="font-bold text-gray-900 text-base sm:text-lg">
+              {language === 'km' ? 'កែសម្រួលការបង្ហោះ' : 'Edit Post'}
+            </h3>
+          </div>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 p-1.5 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
@@ -160,12 +163,12 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             {/* User Profile Info + Privacy */}
             <div className="flex items-center gap-2.5 sm:gap-3">
               <img
-                src={api.getMediaUrl(currentUser.avatar)}
-                alt={currentUser.name}
+                src={api.getMediaUrl(post.author.avatar || currentUser.avatar)}
+                alt={post.author.name}
                 className="w-11 h-11 rounded-full object-cover border border-gray-100"
               />
               <div>
-                <h4 className="font-bold text-gray-900 text-sm">{currentUser.name}</h4>
+                <h4 className="font-bold text-gray-900 text-sm">{post.author.name}</h4>
                 <div className="flex items-center gap-2 mt-1">
                   {/* Privacy Selector */}
                   <select
@@ -177,18 +180,6 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     <option value="friends">{language === 'km' ? 'មិត្តភក្តិ' : 'Friends'}</option>
                     <option value="only_me">{language === 'km' ? 'តែខ្ញុំប៉ុណ្ណោះ' : 'Only Me'}</option>
                   </select>
-
-                  {/* Tag Group */}
-                  <select
-                    value={selectedGroup}
-                    onChange={(e) => setSelectedGroup(e.target.value)}
-                    className="bg-gray-100 text-gray-700 text-xs px-2.5 py-1 rounded-full border-none outline-none font-medium flex items-center gap-1 cursor-pointer focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="">{language === 'km' ? 'ទូទៅ (កាលប្បវត្តិ)' : 'General (Timeline)'}</option>
-                    {groups.map((g) => (
-                      <option key={g.id} value={g.name}>{g.name}</option>
-                    ))}
-                  </select>
                 </div>
               </div>
             </div>
@@ -197,11 +188,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder={
-                language === 'km'
-                  ? `តើអ្នកកំពុងគិតអ្វីដែរ, ${currentUser.name}?`
-                  : `What's on your mind, ${currentUser.name}?`
-              }
+              placeholder={language === 'km' ? 'តើអ្នកចង់កែប្រែអ្វីខ្លះ?' : 'Edit your post content...'}
               className="w-full text-base placeholder-gray-400 border-none outline-none resize-none min-h-[110px] text-gray-800 focus:ring-0 p-0"
               autoFocus
             />
@@ -229,7 +216,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               </div>
             )}
 
-            {/* Location Input Accordion */}
+            {/* Location Input */}
             {showLocationInput && (
               <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 animate-in fade-in duration-100">
                 <div className="flex items-center gap-2">
@@ -252,7 +239,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               </div>
             )}
 
-            {/* Feeling Picker Accordion */}
+            {/* Feeling Picker */}
             {showFeelingPicker && (
               <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 space-y-2 animate-in fade-in duration-100">
                 <div className="flex items-center justify-between">
@@ -285,7 +272,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               </div>
             )}
 
-            {/* Photos Upload & Selected Previews */}
+            {/* Photos Section */}
             {showPhotoSection && (
               <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-200 space-y-3 animate-in fade-in duration-100">
                 <div className="flex items-center justify-between">
@@ -403,16 +390,30 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               </div>
             </div>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={(!content.trim() && images.length === 0) || isUploading}
-              className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white font-bold py-2.5 rounded-xl text-sm transition-colors shadow-xs cursor-pointer"
-            >
-              {isUploading
-                ? (language === 'km' ? 'កំពុងបញ្ចូលទៅ Server...' : 'Uploading...')
-                : (language === 'km' ? 'បង្ហោះ' : 'Post')}
-            </button>
+            {/* Save Button */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2.5 rounded-xl text-sm transition-colors cursor-pointer"
+              >
+                {language === 'km' ? 'បោះបង់' : 'Cancel'}
+              </button>
+              <button
+                type="submit"
+                disabled={(!content.trim() && images.length === 0) || isSaving || isUploading}
+                className="flex-1 bg-[#2563eb] hover:bg-[#1d4ed8] disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white font-bold py-2.5 rounded-xl text-sm transition-colors shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>{language === 'km' ? 'កំពុងរក្សាទុក...' : 'Saving...'}</span>
+                  </>
+                ) : (
+                  <span>{language === 'km' ? 'រក្សាទុក' : 'Save Changes'}</span>
+                )}
+              </button>
+            </div>
           </div>
         </form>
       </div>

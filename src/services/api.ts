@@ -89,6 +89,12 @@ class ApiService {
     return this.request<User>('/auth/me');
   }
 
+  async getHealth(): Promise<{ status: string; database?: string }> {
+    const res = await fetch(`${API_BASE}/health`);
+    if (!res.ok) throw new Error('Health check failed');
+    return res.json();
+  }
+
   // --- USERS ---
   async getUsers(params?: { onlyOnline?: boolean; query?: string }): Promise<User[]> {
     const query = new URLSearchParams();
@@ -169,6 +175,23 @@ class ApiService {
   async sharePost(postId: string): Promise<{ sharesCount: number }> {
     return this.request<{ sharesCount: number }>(`/posts/${postId}/share`, {
       method: 'POST',
+    });
+  }
+
+  async updatePost(
+    postId: string,
+    data: {
+      content?: string;
+      privacy?: 'public' | 'friends' | 'only_me';
+      images?: string[];
+      feeling?: string;
+      location?: string;
+      taggedGroup?: string;
+    }
+  ): Promise<Post> {
+    return this.request<Post>(`/posts/${postId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
     });
   }
 

@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { 
-  SquarePen, 
-  Home, 
-  Compass, 
-  Bell, 
-  Mail, 
-  Phone, 
-  Bookmark, 
-  FolderArchive, 
-  Calendar, 
-  Settings, 
+import {
+  SquarePen,
+  Home,
+  Compass,
+  Bell,
+  Mail,
+  Phone,
+  Bookmark,
+  FolderArchive,
+  Calendar,
+  Settings,
   ChevronDown,
   ChevronUp,
   Camera,
@@ -49,7 +49,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
 
   const navItems = [
     { id: 'home', label: t('sidebar.home'), icon: Home, badge: null, badgeColor: '' },
-    { id: 'about', label: 'Tech & Architecture', icon: Sparkles, badge: 'v1.0', badgeColor: 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs' },
+    { id: 'about', label: t('sidebar.welcome'), icon: Sparkles, badge: 'v1.0', badgeColor: 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs' },
     { id: 'explore', label: t('sidebar.explore'), icon: Compass, badge: null, badgeColor: '' },
     { id: 'notifications', label: t('sidebar.notifications'), icon: Bell, badge: unreadNotifsCount > 0 ? unreadNotifsCount : null, badgeColor: 'bg-[#2563eb] text-white' },
     { id: 'messages', label: t('sidebar.messages'), icon: Mail, badge: null, badgeColor: '' },
@@ -107,17 +107,15 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             <button
               key={item.id}
               onClick={() => handleNavClick(item.id)}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                isActive
-                  ? 'bg-[#eff6ff] text-[#2563eb] font-semibold'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium'
-              }`}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${isActive
+                ? 'bg-[#eff6ff] text-[#2563eb] font-semibold'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium'
+                }`}
             >
               <div className="flex items-center gap-3.5">
                 <Icon
-                  className={`w-5 h-5 transition-colors ${
-                    isActive ? 'text-[#2563eb] stroke-[2.2]' : 'text-gray-500 stroke-[1.8]'
-                  }`}
+                  className={`w-5 h-5 transition-colors ${isActive ? 'text-[#2563eb] stroke-[2.2]' : 'text-gray-500 stroke-[1.8]'
+                    }`}
                 />
                 <span className="text-sm">{item.label}</span>
               </div>

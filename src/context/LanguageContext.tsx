@@ -12,6 +12,7 @@ import enCalls from '../assets/langs/en/calls.json';
 import enEvents from '../assets/langs/en/events.json';
 import enSettings from '../assets/langs/en/settings.json';
 import enFriends from '../assets/langs/en/friends.json';
+import enCreatePost from '../assets/langs/en/createPost.json';
 
 // Khmer translations
 import kmHeader from '../assets/langs/km/header.json';
@@ -25,6 +26,7 @@ import kmCalls from '../assets/langs/km/calls.json';
 import kmEvents from '../assets/langs/km/events.json';
 import kmSettings from '../assets/langs/km/settings.json';
 import kmFriends from '../assets/langs/km/friends.json';
+import kmCreatePost from '../assets/langs/km/createPost.json';
 
 export type Language = 'en' | 'km';
 
@@ -41,6 +43,7 @@ const translations = {
     events: enEvents,
     settings: enSettings,
     friends: enFriends,
+    createPost: enCreatePost,
   },
   km: {
     header: kmHeader,
@@ -54,6 +57,7 @@ const translations = {
     events: kmEvents,
     settings: kmSettings,
     friends: kmFriends,
+    createPost: kmCreatePost,
   },
 };
 

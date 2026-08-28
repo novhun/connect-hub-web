@@ -2,11 +2,13 @@ export interface User {
   id: string;
   name: string;
   avatar: string;
+  coverImage?: string;
   email?: string;
   role?: string;
   bio?: string;
   jobTitle?: string;
   location?: string;
+  website?: string;
   isOnline?: boolean;
   lastSeen?: string;
   createdAt?: string;

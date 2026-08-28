@@ -42,5 +42,9 @@
   "postInGroup": "Post in Group",
   "communityGuidelines": "Community Guidelines",
   "active": "Active",
-  "groupAdmins": "Group Admins & Moderators"
+  "groupAdmins": "Group Admins & Moderators",
+  "notificationsTitle": "Notifications",
+  "markAllRead": "Mark all as read",
+  "new": "New",
+  "noNotifications": "No notifications yet"
 }

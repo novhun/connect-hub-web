@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Phone, PhoneOff, Video } from 'lucide-react';
 import { User } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
+import { settingsApi } from '../modules/settings/api';
+import { startIncomingRing, stopRingtone } from '../services/ringtone';
 
 interface IncomingCallModalProps {
   fromUser: User;
@@ -18,6 +20,22 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
   onDecline,
 }) => {
   const { language } = useLanguage();
+
+  useEffect(() => {
+    let cancelled = false;
+    settingsApi
+      .getSettings()
+      .then((s) => {
+        if (!cancelled && s.callRingtone !== false) startIncomingRing();
+      })
+      .catch(() => {
+        if (!cancelled) startIncomingRing();
+      });
+    return () => {
+      cancelled = true;
+      stopRingtone();
+    };
+  }, []);
 
   return (
     <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-150">

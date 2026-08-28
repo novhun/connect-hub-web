@@ -11,6 +11,8 @@ interface SavedPostsViewProps {
   onAddComment: (postId: string, commentText: string) => void;
   onShare: (post: Post) => void;
   onSaveToggle: (postId: string) => void;
+  onEditPost?: (post: Post) => void;
+  onDeletePost?: (postId: string) => void;
   onViewProfile?: (userId: string) => void;
 }
 
@@ -21,6 +23,8 @@ export const SavedPostsView: React.FC<SavedPostsViewProps> = ({
   onAddComment,
   onShare,
   onSaveToggle,
+  onEditPost,
+  onDeletePost,
   onViewProfile,
 }) => {
   const { t, language } = useLanguage();
@@ -72,6 +76,8 @@ export const SavedPostsView: React.FC<SavedPostsViewProps> = ({
               onAddComment={onAddComment}
               onShare={onShare}
               onSaveToggle={onSaveToggle}
+              onEditPost={onEditPost}
+              onDeletePost={onDeletePost}
               onViewProfile={onViewProfile}
             />
           ))}

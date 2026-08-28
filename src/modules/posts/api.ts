@@ -26,6 +26,9 @@ export const postsApi = {
   deletePost: (postId: string): Promise<{ success: boolean }> => {
     return api.deletePost(postId);
   },
+  updatePost: (postId: string, data: Partial<CreatePostPayload>): Promise<Post> => {
+    return api.updatePost(postId, data);
+  },
   uploadMedia: (file: File): Promise<{ url: string; filename: string; size: number }> => {
     return api.uploadMedia(file);
   },

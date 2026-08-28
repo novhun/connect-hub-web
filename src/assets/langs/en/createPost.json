@@ -1,0 +1,17 @@
+{
+  "title": "Create Post",
+  "placeholder": "What's on your mind",
+  "public": "Public",
+  "friends": "Friends",
+  "onlyMe": "Only Me",
+  "noGroup": "General (Timeline)",
+  "whereAreYou": "Where are you?",
+  "selectFeeling": "Select Feeling / Activity",
+  "photosAndMedia": "Photos & Media",
+  "uploadFromDevice": "Upload from device",
+  "uploading": "Uploading to Server...",
+  "quickPresets": "Quick Scenery Presets",
+  "addToPost": "Add to your post",
+  "submitPost": "Post",
+  "posting": "Posting..."
+}

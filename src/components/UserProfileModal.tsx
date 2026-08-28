@@ -1,9 +1,28 @@
 import React, { useEffect, useState } from 'react';
-import { X, MapPin, Briefcase, Calendar, Edit3, Camera, Check, UserPlus, UserCheck, UserX, Clock, MessageSquare, Phone, Video, Loader2 } from 'lucide-react';
+import { 
+  X, 
+  MapPin, 
+  Briefcase, 
+  Calendar, 
+  Edit3, 
+  Camera, 
+  Check, 
+  UserPlus, 
+  UserCheck, 
+  UserX, 
+  Clock, 
+  MessageSquare, 
+  Phone, 
+  Video, 
+  Loader2, 
+  Globe, 
+  Image as ImageIcon 
+} from 'lucide-react';
 import { User, Post, FriendStatusInfo } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
 import { friendsApi } from '../modules/friends/api';
+import { EditProfileModal } from './EditProfileModal';
 
 interface UserProfileModalProps {
   userId: string;
@@ -30,13 +49,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [friendStatus, setFriendStatus] = useState<FriendStatusInfo | null>(null);
   const [friendActionBusy, setFriendActionBusy] = useState(false);
-
-  const [bio, setBio] = useState('');
-  const [jobTitle, setJobTitle] = useState('');
-  const [location, setLocation] = useState('');
-  const [isEditingBio, setIsEditingBio] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState(false);
+  const [isFullEditModalOpen, setIsFullEditModalOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,9 +65,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       if (cancelled) return;
       if (userRes.status === 'fulfilled' && userRes.value) {
         setProfileUser(userRes.value);
-        setBio(userRes.value.bio || '');
-        setJobTitle(userRes.value.jobTitle || '');
-        setLocation(userRes.value.location || '');
       }
       if (postsRes.status === 'fulfilled') setPosts(postsRes.value || []);
       if (statusRes.status === 'fulfilled' && statusRes.value) setFriendStatus(statusRes.value);
@@ -64,7 +74,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, currentUser]);
 
   const joinedLabel = profileUser?.createdAt
     ? new Date(profileUser.createdAt).toLocaleDateString(language === 'km' ? 'km-KH' : 'en-US', {
@@ -73,21 +83,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       })
     : null;
 
-  const handleSaveProfile = async () => {
-    setSaving(true);
-    setSaveError(false);
-    const patch = { bio, jobTitle, location };
-    try {
-      await api.updateProfile(patch);
-      onUpdateProfile?.(patch);
-      setProfileUser((prev) => (prev ? { ...prev, ...patch } : prev));
-      setIsEditingBio(false);
-    } catch (e) {
-      console.warn('Could not save profile to API:', e);
-      setSaveError(true);
-    } finally {
-      setSaving(false);
-    }
+  const handleProfileUpdated = (patch: Partial<User>) => {
+    setProfileUser((prev) => (prev ? { ...prev, ...patch } : prev));
+    onUpdateProfile?.(patch);
   };
 
   const handleSendRequest = async () => {
@@ -214,197 +212,209 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   }
 
   return (
-    <div
-      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150"
-      onClick={onClose}
-    >
+    <>
       <div
-        className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
-        onClick={(e) => e.stopPropagation()}
+        className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150"
+        onClick={onClose}
       >
-        {/* Cover image */}
-        <div className="relative h-36 sm:h-44 bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-600 shrink-0">
-          <button
-            onClick={onClose}
-            className="absolute top-3 right-3 sm:top-4 sm:right-4 bg-black/40 hover:bg-black/60 text-white p-1.5 sm:p-2 rounded-full transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
-        </div>
-
-        {/* Profile info header */}
-        <div className="px-4 sm:px-6 pb-4 pt-0 relative border-b border-gray-100 bg-white shrink-0">
-          <div className="flex items-end justify-between flex-wrap gap-2 -mt-10 sm:-mt-14 mb-3 sm:mb-4">
-            <div className="relative">
+        <div
+          className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Cover image banner */}
+          <div className="relative h-36 sm:h-48 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 shrink-0 overflow-hidden">
+            {profileUser.coverImage ? (
               <img
-                src={api.getMediaUrl(profileUser.avatar)}
-                alt={profileUser.name}
-                className="w-20 h-20 sm:w-28 sm:h-28 rounded-full border-4 border-white shadow-xl object-cover bg-white"
+                src={api.getMediaUrl(profileUser.coverImage)}
+                alt="Profile Cover"
+                className="w-full h-full object-cover"
               />
-              {isOwnProfile && (
-                <div className="absolute bottom-0 right-0 sm:bottom-1 sm:right-1 bg-blue-600 text-white p-1 sm:p-1.5 rounded-full border-2 border-white cursor-pointer hover:bg-blue-700">
-                  <Camera className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-2">
-              {isOwnProfile ? (
-                <button
-                  onClick={() => setIsEditingBio(!isEditingBio)}
-                  className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>{isEditingBio ? (language === 'km' ? 'បោះបង់' : 'Cancel') : (language === 'km' ? 'កែប្រែ' : 'Edit Profile')}</span>
-                </button>
-              ) : (
-                <>
-                  {onOpenChat && (
-                    <button
-                      onClick={() => onOpenChat(profileUser)}
-                      className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                  {onStartCall && (
-                    <>
-                      <button
-                        onClick={() => onStartCall(profileUser, 'audio')}
-                        className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        <Phone className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => onStartCall(profileUser, 'video')}
-                        className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        <Video className="w-3.5 h-3.5" />
-                      </button>
-                    </>
-                  )}
-                  {renderFriendAction()}
-                </>
-              )}
-            </div>
-          </div>
-
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900">{profileUser.name}</h2>
-          <p className="text-xs text-gray-500 font-medium">
-            {profileUser.role || (language === 'km' ? 'សមាជិក' : 'Member')}
-            {profileUser.isOnline ? ` • ${language === 'km' ? 'កំពុងអនឡាញ' : 'Online now'}` : ''}
-          </p>
-
-          {/* Bio */}
-          <div className="mt-2.5 sm:mt-3">
-            {isEditingBio ? (
-              <div className="space-y-2">
-                <textarea
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  rows={2}
-                  placeholder={language === 'km' ? 'សរសេរអំពីខ្លួនអ្នក...' : 'Write something about yourself...'}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-2 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    value={jobTitle}
-                    onChange={(e) => setJobTitle(e.target.value)}
-                    placeholder={language === 'km' ? 'តួនាទីការងារ' : 'Job title'}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-2 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                  <input
-                    type="text"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder={language === 'km' ? 'ទីតាំង' : 'Location'}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-2 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                </div>
-                {saveError && (
-                  <p className="text-[11px] text-red-500">
-                    {language === 'km' ? 'មិនអាចរក្សាទុកបានទេ សូមព្យាយាមម្តងទៀត។' : "Couldn't save. Please try again."}
-                  </p>
-                )}
-                <button
-                  onClick={handleSaveProfile}
-                  disabled={saving}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white text-xs font-semibold rounded-lg flex items-center gap-1 cursor-pointer"
-                >
-                  <Check className="w-3.5 h-3.5" /> {saving ? (language === 'km' ? 'កំពុងរក្សាទុក...' : 'Saving...') : (language === 'km' ? 'រក្សាទុក' : 'Save Profile')}
-                </button>
-              </div>
-            ) : profileUser.bio ? (
-              <p className="text-xs sm:text-sm text-gray-700 leading-relaxed">{profileUser.bio}</p>
             ) : (
-              <p className="text-xs sm:text-sm text-gray-400 italic leading-relaxed">
-                {language === 'km' ? 'មិនទាន់មានជីវប្រវត្តិនៅឡើយទេ។' : 'No bio yet.'}
-              </p>
+              <div className="w-full h-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600" />
+            )}
+
+            {/* Top Close Button */}
+            <button
+              onClick={onClose}
+              className="absolute top-3 right-3 sm:top-4 sm:right-4 bg-black/40 hover:bg-black/60 text-white p-1.5 sm:p-2 rounded-full transition-colors cursor-pointer z-10"
+            >
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+
+            {/* Change Cover button on banner */}
+            {isOwnProfile && (
+              <button
+                onClick={() => setIsFullEditModalOpen(true)}
+                className="absolute bottom-3 right-3 bg-black/50 hover:bg-black/70 backdrop-blur-xs text-white text-xs font-semibold px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                <span>{language === 'km' ? 'កែប្រែរូបគម្រប' : 'Edit Cover'}</span>
+              </button>
             )}
           </div>
 
-          {/* Details metadata */}
-          {(profileUser.jobTitle || profileUser.location || joinedLabel) && (
-            <div className="flex items-center gap-3 sm:gap-4 text-xs text-gray-500 mt-2.5 sm:mt-3 pt-2.5 sm:pt-3 border-t border-gray-100 flex-wrap">
-              {profileUser.jobTitle && (
-                <div className="flex items-center gap-1">
-                  <Briefcase className="w-3.5 h-3.5 text-gray-400" />
-                  <span>{profileUser.jobTitle}</span>
-                </div>
-              )}
-              {profileUser.location && (
-                <div className="flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                  <span>{profileUser.location}</span>
-                </div>
-              )}
-              {joinedLabel && (
-                <div className="flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                  <span>{language === 'km' ? `ចូលរួមតាំងពី ${joinedLabel}` : `Joined ${joinedLabel}`}</span>
-                </div>
+          {/* Profile info header */}
+          <div className="px-4 sm:px-6 pb-4 pt-0 relative border-b border-gray-100 bg-white shrink-0">
+            <div className="flex items-end justify-between flex-wrap gap-2 -mt-10 sm:-mt-14 mb-3 sm:mb-4">
+              <div className="relative">
+                <img
+                  src={api.getMediaUrl(profileUser.avatar)}
+                  alt={profileUser.name}
+                  className="w-20 h-20 sm:w-28 sm:h-28 rounded-full border-4 border-white shadow-xl object-cover bg-white"
+                />
+                {isOwnProfile && (
+                  <button
+                    onClick={() => setIsFullEditModalOpen(true)}
+                    className="absolute bottom-0 right-0 sm:bottom-1 sm:right-1 bg-blue-600 text-white p-1 sm:p-1.5 rounded-full border-2 border-white cursor-pointer hover:bg-blue-700 shadow-xs"
+                    title={language === 'km' ? 'កែប្រែរូបភាពគណនី' : 'Change Avatar'}
+                  >
+                    <Camera className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                {isOwnProfile ? (
+                  <button
+                    onClick={() => setIsFullEditModalOpen(true)}
+                    className="px-3.5 sm:px-4 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>{language === 'km' ? 'កែប្រែគណនី' : 'Edit Profile'}</span>
+                  </button>
+                ) : (
+                  <>
+                    {onOpenChat && (
+                      <button
+                        onClick={() => onOpenChat(profileUser)}
+                        className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {onStartCall && (
+                      <>
+                        <button
+                          onClick={() => onStartCall(profileUser, 'audio')}
+                          className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => onStartCall(profileUser, 'video')}
+                          className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Video className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    )}
+                    {renderFriendAction()}
+                  </>
+                )}
+              </div>
+            </div>
+
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900">{profileUser.name}</h2>
+            <p className="text-xs text-gray-500 font-medium">
+              {profileUser.role || (language === 'km' ? 'សមាជិក' : 'Member')}
+              {profileUser.isOnline ? ` • ${language === 'km' ? 'កំពុងអនឡាញ' : 'Online now'}` : ''}
+            </p>
+
+            {/* Bio text */}
+            <div className="mt-2.5 sm:mt-3">
+              {profileUser.bio ? (
+                <p className="text-xs sm:text-sm text-gray-700 leading-relaxed whitespace-pre-line">
+                  {profileUser.bio}
+                </p>
+              ) : (
+                <p className="text-xs sm:text-sm text-gray-400 italic leading-relaxed">
+                  {language === 'km' ? 'មិនទាន់មានជីវប្រវត្តិនៅឡើយទេ។' : 'No bio added yet.'}
+                </p>
               )}
             </div>
-          )}
-        </div>
 
-        {/* User Posts Timeline */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-gray-900 text-sm">
-              {isOwnProfile
-                ? (language === 'km' ? 'ការបង្ហោះរបស់ខ្ញុំ' : 'My Activity Posts')
-                : (language === 'km' ? 'ការបង្ហោះ' : 'Posts')}
-            </h3>
-            <span className="text-xs text-gray-500 font-semibold bg-gray-100 px-2 py-0.5 rounded-full">
-              {posts.length} {language === 'km' ? 'ការបង្ហោះ' : 'Posts'}
-            </span>
+            {/* Details metadata row */}
+            {(profileUser.jobTitle || profileUser.location || profileUser.website || joinedLabel) && (
+              <div className="flex items-center gap-3 sm:gap-4 text-xs text-gray-500 mt-2.5 sm:mt-3 pt-2.5 sm:pt-3 border-t border-gray-100 flex-wrap">
+                {profileUser.jobTitle && (
+                  <div className="flex items-center gap-1 text-gray-700 font-medium">
+                    <Briefcase className="w-3.5 h-3.5 text-gray-400" />
+                    <span>{profileUser.jobTitle}</span>
+                  </div>
+                )}
+                {profileUser.location && (
+                  <div className="flex items-center gap-1 text-gray-700 font-medium">
+                    <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                    <span>{profileUser.location}</span>
+                  </div>
+                )}
+                {profileUser.website && (
+                  <a
+                    href={profileUser.website.startsWith('http') ? profileUser.website : `https://${profileUser.website}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-blue-600 hover:underline font-medium"
+                  >
+                    <Globe className="w-3.5 h-3.5 text-blue-500" />
+                    <span className="truncate max-w-[160px]">{profileUser.website.replace(/^https?:\/\//, '')}</span>
+                  </a>
+                )}
+                {joinedLabel && (
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                    <span>{language === 'km' ? `ចូលរួមតាំងពី ${joinedLabel}` : `Joined ${joinedLabel}`}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {posts.length === 0 ? (
-            <div className="text-center py-8 text-xs text-gray-400">
-              {language === 'km' ? 'មិនទាន់មានការបង្ហោះនៅឡើយទេ។' : 'No posts shared yet.'}
+          {/* User Posts Timeline */}
+          <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-gray-900 text-sm">
+                {isOwnProfile
+                  ? (language === 'km' ? 'ការបង្ហោះរបស់ខ្ញុំ' : 'My Activity Posts')
+                  : (language === 'km' ? 'ការបង្ហោះ' : 'Posts')}
+              </h3>
+              <span className="text-xs text-gray-500 font-semibold bg-gray-100 px-2 py-0.5 rounded-full">
+                {posts.length} {language === 'km' ? 'ការបង្ហោះ' : 'Posts'}
+              </span>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {posts.map((p) => (
-                <div key={p.id} className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2">
-                  <p className="text-xs text-gray-800 line-clamp-2">{p.content}</p>
-                  {p.images && p.images.length > 0 && (
-                    <img
-                      src={api.getMediaUrl(p.images[0])}
-                      alt="Post thumbnail"
-                      className="h-28 w-full object-cover rounded-lg"
-                    />
-                  )}
-                  <span className="text-[10px] text-gray-400 block">{p.timestamp}</span>
-                </div>
-              ))}
-            </div>
-          )}
+
+            {posts.length === 0 ? (
+              <div className="text-center py-8 text-xs text-gray-400">
+                {language === 'km' ? 'មិនទាន់មានការបង្ហោះនៅឡើយទេ។' : 'No posts shared yet.'}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {posts.map((p) => (
+                  <div key={p.id} className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2">
+                    <p className="text-xs text-gray-800 line-clamp-2">{p.content}</p>
+                    {p.images && p.images.length > 0 && (
+                      <img
+                        src={api.getMediaUrl(p.images[0])}
+                        alt="Post thumbnail"
+                        className="h-28 w-full object-cover rounded-lg"
+                      />
+                    )}
+                    <span className="text-[10px] text-gray-400 block">{p.timestamp}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* 2. Dedicated Edit Profile & Cover Modal */}
+      {isFullEditModalOpen && (
+        <EditProfileModal
+          currentUser={currentUser}
+          onClose={() => setIsFullEditModalOpen(false)}
+          onUpdateProfile={handleProfileUpdated}
+        />
+      )}
+    </>
   );
 };

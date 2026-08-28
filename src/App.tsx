@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Post, Story, Group, User, ReactionType, NotificationItem } from './types';
-import { 
+import {
   Header,
   LeftSidebar,
   RightSidebar,
@@ -12,6 +12,7 @@ import {
   CreatePostBox,
   PostCard,
   CreatePostModal,
+  EditPostModal,
   ShareModal,
   SavedPostsView,
   ExploreView,
@@ -28,6 +29,7 @@ import {
   UserProfileModal,
   SettingsView,
   NotificationsPopover,
+  NotificationsView,
   AboutView,
   EventsView,
   FriendsView,
@@ -36,6 +38,7 @@ import { useLanguage } from './context/LanguageContext';
 import { api } from './services/api';
 import { friendsApi } from './modules/friends/api';
 import { realtime, RealtimeMessage } from './services/realtime';
+import { unlockAudio } from './services/ringtone';
 
 const DEFAULT_USER: User = {
   id: '',
@@ -49,20 +52,74 @@ const DEFAULT_USER: User = {
 
 const LOGGED_OUT_KEY = 'connect_hub_logged_out';
 
+interface ParsedRoute {
+  tab: string;
+  groupId?: string;
+  profileUserId?: string;
+  isAuthLogin?: boolean;
+  isAuthRegister?: boolean;
+}
+
+function parseBrowserRoute(pathname: string): ParsedRoute {
+  const clean = pathname.replace(/^\/+|\/+$/g, '');
+  if (!clean || clean === 'home' || clean === 'feed') {
+    return { tab: 'home' };
+  }
+  if (clean.startsWith('explore')) return { tab: 'explore' };
+  if (clean.startsWith('notifications') || clean.startsWith('notifs')) return { tab: 'notifications' };
+  if (clean.startsWith('groups')) {
+    const parts = clean.split('/');
+    return { tab: 'groups', groupId: parts[1] };
+  }
+  if (clean.startsWith('friends')) return { tab: 'friends' };
+  if (clean.startsWith('messages') || clean.startsWith('chat')) return { tab: 'messages' };
+  if (clean.startsWith('calls')) return { tab: 'calls' };
+  if (clean.startsWith('events')) return { tab: 'events' };
+  if (clean.startsWith('saved') || clean.startsWith('bookmarks')) return { tab: 'saved' };
+  if (clean.startsWith('settings')) return { tab: 'settings' };
+  if (clean.startsWith('about') || clean.startsWith('tech')) return { tab: 'about' };
+  if (clean.startsWith('profile')) {
+    const parts = clean.split('/');
+    return { tab: 'home', profileUserId: parts[1] };
+  }
+  if (clean === 'login') return { tab: 'home', isAuthLogin: true };
+  if (clean === 'register' || clean === 'signup') return { tab: 'home', isAuthRegister: true };
+  return { tab: 'home' };
+}
+
+function formatRoutePath(tab: string, param?: string | null): string {
+  if (tab === 'home') return '/';
+  if (tab === 'explore') return '/explore';
+  if (tab === 'notifications') return '/notifications';
+  if (tab === 'groups') return param ? `/groups/${param}` : '/groups';
+  if (tab === 'friends') return '/friends';
+  if (tab === 'messages') return param ? `/messages/${param}` : '/messages';
+  if (tab === 'calls') return '/calls';
+  if (tab === 'events') return '/events';
+  if (tab === 'saved' || tab === 'bookmarks') return '/saved';
+  if (tab === 'settings') return '/settings';
+  if (tab === 'about') return '/about';
+  if (tab === 'login') return '/login';
+  if (tab === 'register') return '/register';
+  if (tab === 'profile') return param ? `/profile/${param}` : '/';
+  return `/${tab}`;
+}
+
 export default function App() {
   const { t, language } = useLanguage();
+  const initialRoute = parseBrowserRoute(window.location.pathname);
 
-  // App state
+  // App state & active route
   const [currentUser, setCurrentUser] = useState<User>(DEFAULT_USER);
-  const [activeTab, setActiveTab] = useState<string>('home');
+  const [activeTab, setActiveTabState] = useState<string>(initialRoute.tab);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isApiConnected, setIsApiConnected] = useState<boolean>(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  
+
   // Auth & Real Call states
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
-  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState<boolean>(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(Boolean(initialRoute.isAuthLogin));
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState<boolean>(Boolean(initialRoute.isAuthRegister));
   const [activeRealCall, setActiveRealCall] = useState<{
     targetUser: User;
     callType: 'audio' | 'video';
@@ -94,10 +151,51 @@ export default function App() {
   const [supportModalMode, setSupportModalMode] = useState<'chat' | null>(null);
   const [activeChatUser, setActiveChatUser] = useState<User | null>(null);
   const [sharingPost, setSharingPost] = useState<Post | null>(null);
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(initialRoute.groupId || null);
   const selectedGroupDetail = selectedGroupId ? groups.find((g) => g.id === selectedGroupId) || null : null;
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [viewingProfileUserId, setViewingProfileUserId] = useState<string | null>(null);
+  const [viewingProfileUserId, setViewingProfileUserId] = useState<string | null>(initialRoute.profileUserId || null);
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
+
+  // Central Router Navigation Function
+  const setActiveTab = (tab: string, param?: string | null, replace = false) => {
+    setActiveTabState(tab);
+    const newPath = formatRoutePath(tab, param);
+    if (window.location.pathname !== newPath) {
+      if (replace) {
+        window.history.replaceState(null, '', newPath);
+      } else {
+        window.history.pushState(null, '', newPath);
+      }
+    }
+  };
+
+  // Synchronize Browser Back / Forward Button Navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      const route = parseBrowserRoute(window.location.pathname);
+      setActiveTabState(route.tab);
+      if (route.groupId) setSelectedGroupId(route.groupId);
+      if (route.profileUserId) setViewingProfileUserId(route.profileUserId);
+      if (route.isAuthLogin) setIsLoginModalOpen(true);
+      if (route.isAuthRegister) setIsRegisterModalOpen(true);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Browsers block audio playback until a real user gesture — unlock ringtone
+  // audio on the first interaction so it's ready before any call ever rings.
+  useEffect(() => {
+    const events: (keyof WindowEventMap)[] = ['click', 'keydown', 'touchstart'];
+    const handleFirstGesture = () => {
+      unlockAudio();
+      events.forEach((evt) => window.removeEventListener(evt, handleFirstGesture));
+    };
+    events.forEach((evt) => window.addEventListener(evt, handleFirstGesture, { once: true }));
+    return () => events.forEach((evt) => window.removeEventListener(evt, handleFirstGesture));
+  }, []);
 
   // Initialize API connection & fetch 100% Real Live Data
   useEffect(() => {
@@ -133,7 +231,7 @@ export default function App() {
             setIsApiConnected(true);
             localStorage.removeItem(LOGGED_OUT_KEY);
             realtime.connect(user.id);
-          } catch (_) {}
+          } catch (_) { }
         }
 
         // Fetch Posts, Stories, Groups, Online Users, Notifications, Friend Requests in parallel
@@ -213,7 +311,7 @@ export default function App() {
       if (fetchedNotifs?.length) setNotifications(fetchedNotifs);
       if (fetchedUsers?.length) setOnlineMembers(fetchedUsers);
       setFriendRequestsCount(fetchedFriendReqs?.length || 0);
-    } catch (_) {}
+    } catch (_) { }
   };
 
   // Real Call Handlers — places a real call: sends a signaling invite over the
@@ -262,7 +360,7 @@ export default function App() {
     if (!incomingCall) return;
     realtime.send({ type: 'CALL_DECLINE', targetUserId: incomingCall.fromUserId, roomId: incomingCall.roomId });
     if (incomingCall.sessionId) {
-      api.updateCallStatus(incomingCall.sessionId, 'declined').catch(() => {});
+      api.updateCallStatus(incomingCall.sessionId, 'declined').catch(() => { });
     }
     setIncomingCall(null);
   };
@@ -295,11 +393,11 @@ export default function App() {
   // Filtered posts based on search
   const filteredPosts = searchQuery.trim()
     ? posts.filter(
-        (p) =>
-          p.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.author.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (p.taggedGroup && p.taggedGroup.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
+      (p) =>
+        p.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.author.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (p.taggedGroup && p.taggedGroup.toLowerCase().includes(searchQuery.toLowerCase()))
+    )
     : posts;
 
   const unreadNotifsCount = notifications.filter((n) => !n.isRead).length;
@@ -392,6 +490,11 @@ export default function App() {
     } catch (e) {
       console.warn('Delete post API notice:', e);
     }
+  };
+
+  const handleUpdatePost = (updatedPost: Post) => {
+    setPosts((prev) => prev.map((p) => (p.id === updatedPost.id ? updatedPost : p)));
+    setEditingPost(null);
   };
 
   const handleAddPost = async (newPost: Post) => {
@@ -505,8 +608,59 @@ export default function App() {
     setIsNotificationsOpen(false);
   };
 
+  // Route-synchronized Modal Handlers
+  const handleOpenLogin = () => {
+    setIsLoginModalOpen(true);
+    setIsRegisterModalOpen(false);
+    const path = formatRoutePath('login');
+    if (window.location.pathname !== path) window.history.pushState(null, '', path);
+  };
+
+  const handleCloseLogin = () => {
+    setIsLoginModalOpen(false);
+    const path = formatRoutePath(activeTab);
+    if (window.location.pathname !== path) window.history.pushState(null, '', path);
+  };
+
+  const handleOpenRegister = () => {
+    setIsRegisterModalOpen(true);
+    setIsLoginModalOpen(false);
+    const path = formatRoutePath('register');
+    if (window.location.pathname !== path) window.history.pushState(null, '', path);
+  };
+
+  const handleCloseRegister = () => {
+    setIsRegisterModalOpen(false);
+    const path = formatRoutePath(activeTab);
+    if (window.location.pathname !== path) window.history.pushState(null, '', path);
+  };
+
+  const handleOpenProfile = (userId: string) => {
+    setViewingProfileUserId(userId);
+    const path = formatRoutePath('profile', userId);
+    if (window.location.pathname !== path) window.history.pushState(null, '', path);
+  };
+
+  const handleCloseProfile = () => {
+    setViewingProfileUserId(null);
+    const path = formatRoutePath(activeTab);
+    if (window.location.pathname !== path) window.history.pushState(null, '', path);
+  };
+
+  const handleSelectGroup = (groupId: string) => {
+    setSelectedGroupId(groupId);
+    const path = formatRoutePath('groups', groupId);
+    if (window.location.pathname !== path) window.history.pushState(null, '', path);
+  };
+
+  const handleCloseGroup = () => {
+    setSelectedGroupId(null);
+    const path = formatRoutePath(activeTab);
+    if (window.location.pathname !== path) window.history.pushState(null, '', path);
+  };
+
   return (
-    <div className="text-gray-800 h-screen flex flex-col overflow-hidden font-['Inter',sans-serif] bg-[#f0f2f5]">
+    <div className={`text-gray-800 h-screen flex flex-col overflow-hidden bg-[#f0f2f5] ${language === 'km' ? 'font-khmer' : ''}`}>
       {/* BEGIN: Top Navigation Bar */}
       <Header
         currentUser={currentUser}
@@ -517,13 +671,13 @@ export default function App() {
         onOpenNotifications={() => setIsNotificationsOpen(!isNotificationsOpen)}
         onOpenMessages={() => setActiveTab('messages')}
         onOpenSupport={() => setSupportModalMode('chat')}
-        onOpenProfile={() => setViewingProfileUserId(currentUser.id)}
-        onViewProfile={(id) => setViewingProfileUserId(id)}
+        onOpenProfile={() => handleOpenProfile(currentUser.id)}
+        onViewProfile={(id) => handleOpenProfile(id)}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         onLogout={handleLogout}
-        onOpenLogin={() => setIsLoginModalOpen(true)}
+        onOpenLogin={handleOpenLogin}
       />
 
       {/* BEGIN: Main Layout Wrapper */}
@@ -539,7 +693,7 @@ export default function App() {
           unreadNotifsCount={unreadNotifsCount}
           friendRequestsCount={friendRequestsCount}
           groups={groups}
-          onSelectGroup={(g) => setSelectedGroupId(g.id)}
+          onSelectGroup={(g) => handleSelectGroup(g.id)}
           isMobileOpen={isMobileMenuOpen}
           onCloseMobile={() => setIsMobileMenuOpen(false)}
         />
@@ -552,30 +706,32 @@ export default function App() {
           {/* Render based on active navigation tab */}
           {activeTab === 'home' && (
             <div className="max-w-2xl mx-auto space-y-6">
-              {/* Welcome & System Info Hero Callout */}
-              <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-900 text-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-700/60 relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="space-y-1 relative z-10">
+              {/* Welcome & Community Hero Callout */}
+              <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-900 text-white rounded-2xl p-4 sm:p-5 shadow-xs border border-slate-700/60 relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="space-y-1.5 relative z-10">
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[10px] font-bold border border-blue-400/30">
-                      FASTAPI + REACT 19
+                    <span className="px-2 py-0.5 rounded-full bg-blue-500/25 text-blue-300 text-[10px] font-bold border border-blue-400/30">
+                      {language === 'km' ? 'បណ្តាញសង្គមជំនាន់ថ្មី' : 'CONNECT HUB SOCIAL'}
                     </span>
                     <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 font-semibold">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      Backend Online (8008)
+                      {language === 'km' ? 'ស្ថានភាព: ដំណើរការ' : 'Status: Online'}
                     </span>
                   </div>
                   <h3 className="font-bold text-sm sm:text-base text-white">
-                    Connect-Hub System Architecture & Live API
+                    {language === 'km' ? 'សូមស្វាគមន៍មកកាន់ មជ្ឈមណ្ឌលតភ្ជាប់' : 'Welcome to Connect Hub'}
                   </h3>
-                  <p className="text-xs text-slate-300">
-                    SQLAlchemy 2.0 • Multi-DB (Postgres/MySQL/Mongo/SQLite) • PeerJS WebRTC • S3/R2 • Duplex WebSockets
+                  <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
+                    {language === 'km'
+                      ? 'ភ្ជាប់ទំនាក់ទំនងជាមួយមិត្តភក្តិ ចែករំលែកការបង្ហោះ និងការហៅជាសំឡេង/វីដេអូ HD ដោយសុវត្ថិភាពខ្ពស់។'
+                      : 'Connect with friends, share memorable moments, and experience real-time HD audio & video calling.'}
                   </p>
                 </div>
                 <button
                   onClick={() => setActiveTab('about')}
-                  className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl shadow-xs shrink-0 cursor-pointer transition-colors relative z-10"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl shadow-xs shrink-0 cursor-pointer transition-colors relative z-10"
                 >
-                  Explore Tech
+                  {language === 'km' ? 'ស្វែងយល់បន្ថែម' : 'Learn More'}
                 </button>
               </div>
 
@@ -636,8 +792,9 @@ export default function App() {
                       onAddComment={handleAddComment}
                       onShare={(p) => setSharingPost(p)}
                       onSaveToggle={handleSaveToggle}
+                      onEditPost={(p) => setEditingPost(p)}
                       onDeletePost={handleDeletePost}
-                      onViewProfile={(id) => setViewingProfileUserId(id)}
+                      onViewProfile={(id) => handleOpenProfile(id)}
                     />
                   ))
                 )}
@@ -649,11 +806,11 @@ export default function App() {
             <ExploreView
               posts={posts}
               groups={groups}
-              onSelectGroup={(g) => setSelectedGroupId(g.id)}
+              onSelectGroup={(g) => handleSelectGroup(g.id)}
               onReact={handleReactPost}
               onAddComment={handleAddComment}
               currentUser={currentUser}
-              onViewProfile={(id) => setViewingProfileUserId(id)}
+              onViewProfile={(id) => handleOpenProfile(id)}
             />
           )}
 
@@ -661,13 +818,13 @@ export default function App() {
             <GroupsView
               groups={groups}
               currentUser={currentUser}
-              onSelectGroup={(g) => setSelectedGroupId(g.id)}
+              onSelectGroup={(g) => handleSelectGroup(g.id)}
               onToggleJoinGroup={handleToggleJoinGroup}
             />
           )}
 
           {activeTab === 'friends' && (
-            <FriendsView onViewProfile={(id) => setViewingProfileUserId(id)} />
+            <FriendsView onViewProfile={(id) => handleOpenProfile(id)} />
           )}
 
           {activeTab === 'messages' && (
@@ -693,7 +850,9 @@ export default function App() {
               onAddComment={handleAddComment}
               onShare={(p) => setSharingPost(p)}
               onSaveToggle={handleSaveToggle}
-              onViewProfile={(id) => setViewingProfileUserId(id)}
+              onEditPost={(p) => setEditingPost(p)}
+              onDeletePost={handleDeletePost}
+              onViewProfile={(id) => handleOpenProfile(id)}
             />
           )}
 
@@ -705,13 +864,28 @@ export default function App() {
               onAddComment={handleAddComment}
               onShare={(p) => setSharingPost(p)}
               onSaveToggle={handleSaveToggle}
-              onViewProfile={(id) => setViewingProfileUserId(id)}
+              onEditPost={(p) => setEditingPost(p)}
+              onDeletePost={handleDeletePost}
+              onViewProfile={(id) => handleOpenProfile(id)}
             />
           )}
 
           {activeTab === 'events' && <EventsView />}
 
-          {activeTab === 'settings' && <SettingsView currentUser={currentUser} />}
+          {activeTab === 'notifications' && (
+            <NotificationsView
+              currentUser={currentUser}
+              onViewProfile={(id) => handleOpenProfile(id)}
+              onStartCall={handleStartRealCall}
+            />
+          )}
+
+          {activeTab === 'settings' && (
+            <SettingsView
+              currentUser={currentUser}
+              onUpdateProfile={(patch) => setCurrentUser((prev) => ({ ...prev, ...patch }))}
+            />
+          )}
 
           {activeTab === 'about' && (
             <AboutView
@@ -727,12 +901,12 @@ export default function App() {
           onlineMembers={onlineMembers}
           onOpenChat={(user) => setActiveChatUser(user)}
           onStartCall={handleStartRealCall}
-          onViewProfile={(id) => setViewingProfileUserId(id)}
+          onViewProfile={(id) => handleOpenProfile(id)}
           onOpenSupport={(mode) => {
             if (mode === 'chat') setSupportModalMode('chat');
             else handleStartRealCall(onlineMembers[0] || currentUser, mode);
           }}
-          onSelectGroup={(g) => setSelectedGroupId(g.id)}
+          onSelectGroup={(g) => handleSelectGroup(g.id)}
           onSeeAllGroups={() => setActiveTab('groups')}
         />
       </div>
@@ -763,24 +937,18 @@ export default function App() {
       {/* 2. Real Auth Login Modal */}
       {isLoginModalOpen && (
         <LoginModal
-          onClose={() => setIsLoginModalOpen(false)}
+          onClose={handleCloseLogin}
           onSuccess={handleAuthSuccess}
-          onSwitchToRegister={() => {
-            setIsLoginModalOpen(false);
-            setIsRegisterModalOpen(true);
-          }}
+          onSwitchToRegister={handleOpenRegister}
         />
       )}
 
       {/* 3. Real Auth Register Modal */}
       {isRegisterModalOpen && (
         <RegisterModal
-          onClose={() => setIsRegisterModalOpen(false)}
+          onClose={handleCloseRegister}
           onSuccess={handleAuthSuccess}
-          onSwitchToLogin={() => {
-            setIsRegisterModalOpen(false);
-            setIsLoginModalOpen(true);
-          }}
+          onSwitchToLogin={handleOpenLogin}
         />
       )}
 
@@ -810,6 +978,16 @@ export default function App() {
           onAddPost={handleAddPost}
           initialType={createPostInitialType}
           groups={groups}
+        />
+      )}
+
+      {/* 6b. Edit Post Modal */}
+      {editingPost && (
+        <EditPostModal
+          post={editingPost}
+          currentUser={currentUser}
+          onClose={() => setEditingPost(null)}
+          onUpdatePost={handleUpdatePost}
         />
       )}
 
@@ -844,7 +1022,7 @@ export default function App() {
       {selectedGroupDetail && (
         <GroupDetailModal
           group={selectedGroupDetail}
-          onClose={() => setSelectedGroupId(null)}
+          onClose={handleCloseGroup}
           onToggleJoin={handleToggleJoinGroup}
           groupPosts={posts.filter((p) => p.taggedGroup === selectedGroupDetail.name)}
           currentUser={currentUser}
@@ -852,8 +1030,9 @@ export default function App() {
           onAddComment={handleAddComment}
           onShare={(p) => setSharingPost(p)}
           onSaveToggle={handleSaveToggle}
+          onEditPost={(p) => setEditingPost(p)}
           onDeletePost={handleDeletePost}
-          onViewProfile={(id) => setViewingProfileUserId(id)}
+          onViewProfile={(id) => handleOpenProfile(id)}
         />
       )}
 
@@ -872,14 +1051,14 @@ export default function App() {
         <UserProfileModal
           userId={viewingProfileUserId}
           currentUser={currentUser}
-          onClose={() => setViewingProfileUserId(null)}
+          onClose={handleCloseProfile}
           onUpdateProfile={(patch) => setCurrentUser((prev) => ({ ...prev, ...patch }))}
           onOpenChat={(user) => {
-            setViewingProfileUserId(null);
+            handleCloseProfile();
             setActiveChatUser(user);
           }}
           onStartCall={(user, type) => {
-            setViewingProfileUserId(null);
+            handleCloseProfile();
             handleStartRealCall(user, type);
           }}
         />

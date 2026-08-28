@@ -9,12 +9,14 @@ import {
   Share2, 
   Heart, 
   Smile, 
-  Send,
-  Bookmark,
-  Link,
-  EyeOff,
-  Check,
-  X
+  Send, 
+  Bookmark, 
+  Link, 
+  EyeOff, 
+  Check, 
+  X, 
+  Edit3, 
+  Trash2
 } from 'lucide-react';
 import { Post, ReactionType, User } from '../types';
 import { useLanguage } from '../context/LanguageContext';
@@ -27,6 +29,7 @@ interface PostCardProps {
   onAddComment: (postId: string, commentText: string) => void;
   onShare: (post: Post) => void;
   onSaveToggle: (postId: string) => void;
+  onEditPost?: (post: Post) => void;
   onDeletePost?: (postId: string) => void;
   onViewProfile?: (userId: string) => void;
 }
@@ -38,6 +41,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   onAddComment,
   onShare,
   onSaveToggle,
+  onEditPost,
   onDeletePost,
   onViewProfile,
 }) => {
@@ -46,6 +50,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   const [showComments, setShowComments] = useState(true);
   const [newCommentText, setNewCommentText] = useState('');
   const [showMenu, setShowMenu] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -202,19 +207,33 @@ export const PostCard: React.FC<PostCardProps> = ({
                 <EyeOff className="w-4 h-4 text-gray-500" />
                 <span>{language === 'km' ? 'លាក់ការបង្ហោះ' : 'Hide Post'}</span>
               </button>
-              {currentUser.id === post.author.id && onDeletePost && (
+              {currentUser.id === post.author.id && (
                 <>
                   <div className="border-t border-gray-100 my-1"></div>
-                  <button
-                    onClick={() => {
-                      onDeletePost(post.id);
-                      setShowMenu(false);
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-red-50 text-red-600 font-medium text-left"
-                  >
-                    <X className="w-4 h-4 text-red-500" />
-                    <span>{t('posts.deletePost')}</span>
-                  </button>
+                  {onEditPost && (
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        onEditPost(post);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-blue-50 text-blue-600 font-medium text-left cursor-pointer"
+                    >
+                      <Edit3 className="w-4 h-4 text-blue-500" />
+                      <span>{language === 'km' ? 'កែសម្រួលការបង្ហោះ' : 'Edit Post'}</span>
+                    </button>
+                  )}
+                  {onDeletePost && (
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        setShowDeleteConfirm(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-red-50 text-red-600 font-medium text-left cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                      <span>{language === 'km' ? 'លុបការបង្ហោះ' : 'Delete Post'}</span>
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -534,7 +553,7 @@ export const PostCard: React.FC<PostCardProps> = ({
         >
           <button
             onClick={() => setLightboxImage(null)}
-            className="absolute top-4 right-4 text-white hover:bg-white/20 p-2 rounded-full transition-colors"
+            className="absolute top-4 right-4 text-white hover:bg-white/20 p-2 rounded-full transition-colors cursor-pointer"
           >
             <X className="w-6 h-6" />
           </button>
@@ -544,6 +563,54 @@ export const PostCard: React.FC<PostCardProps> = ({
             className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           />
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-100"
+          onClick={() => setShowDeleteConfirm(false)}
+        >
+          <div 
+            className="bg-white rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-4 animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-bold text-gray-900 text-base">
+                  {language === 'km' ? 'លុបការបង្ហោះនេះ?' : 'Delete Post?'}
+                </h4>
+                <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                  {language === 'km' 
+                    ? 'តើអ្នកប្រាកដជាចង់លុបការបង្ហោះនេះទេ? សកម្មភាពនេះមិនអាចត្រឡប់វិញបានទេ។' 
+                    : 'Are you sure you want to delete this post? This action cannot be undone.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs transition-colors cursor-pointer"
+              >
+                {language === 'km' ? 'បោះបង់' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  if (onDeletePost) onDeletePost(post.id);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-xs transition-colors shadow-xs cursor-pointer"
+              >
+                {language === 'km' ? 'លុប' : 'Delete'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </article>

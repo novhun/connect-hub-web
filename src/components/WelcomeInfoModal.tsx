@@ -7,14 +7,10 @@ import {
   Radio, 
   Cloud, 
   ExternalLink, 
-  Server, 
   Activity, 
-  CheckCircle2, 
-  Zap,
-  Code2,
-  Globe
 } from 'lucide-react';
 import { api } from '../services/api';
+import { useLanguage } from '../context/LanguageContext';
 
 interface WelcomeInfoModalProps {
   onClose: () => void;
@@ -25,12 +21,12 @@ export const WelcomeInfoModal: React.FC<WelcomeInfoModalProps> = ({
   onClose,
   onNavigateToAbout,
 }) => {
+  const { language } = useLanguage();
   const [apiOnline, setApiOnline] = useState<boolean>(true);
   const [peerId, setPeerId] = useState<string>('');
 
   useEffect(() => {
-    fetch('http://localhost:8008/health')
-      .then((res) => res.json())
+    api.getHealth()
       .then(() => setApiOnline(true))
       .catch(() => setApiOnline(false));
 
@@ -58,10 +54,12 @@ export const WelcomeInfoModal: React.FC<WelcomeInfoModalProps> = ({
           <div className="space-y-2">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-semibold">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Connect-Hub Architecture & Build Info</span>
+              <span>
+                {language === 'km' ? 'ព័ត៌មានស្ថាបត្យកម្ម Connect-Hub' : 'Connect-Hub Architecture & Build Info'}
+              </span>
             </div>
             <h2 className="text-2xl font-black tracking-tight text-white">
-              Full Stack Social & Calling Platform
+              {language === 'km' ? 'វេទិកាសង្គម និងការហៅផ្ទាល់ពេញលេញ' : 'Full Stack Social & Calling Platform'}
             </h2>
             <p className="text-xs text-slate-300">
               Modern Python FastAPI MVC + React 19 + Tailwind v4 + PeerJS WebRTC
@@ -78,13 +76,17 @@ export const WelcomeInfoModal: React.FC<WelcomeInfoModalProps> = ({
                 <Activity className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-gray-900">Live API Endpoint</h4>
-                <p className="text-xs text-gray-500">http://localhost:8008 (FastAPI)</p>
+                <h4 className="text-xs font-bold text-gray-900">
+                  {language === 'km' ? 'ស្ថានភាព API ផ្ទាល់' : 'Live API Endpoint'}
+                </h4>
+                <p className="text-xs text-gray-500">FastAPI Backend (8008)</p>
               </div>
             </div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              ONLINE
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+              apiOnline ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${apiOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+              {apiOnline ? (language === 'km' ? 'ដំណើរការ' : 'ONLINE') : (language === 'km' ? 'ដាច់ការតភ្ជាប់' : 'OFFLINE')}
             </span>
           </div>
 
@@ -93,7 +95,7 @@ export const WelcomeInfoModal: React.FC<WelcomeInfoModalProps> = ({
             <div className="p-4 rounded-2xl border border-gray-200 bg-white shadow-2xs space-y-1.5">
               <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs">
                 <Cpu className="w-4 h-4" />
-                <span>Backend Core</span>
+                <span>{language === 'km' ? 'ប្រព័ន្ធ Backend' : 'Backend Core'}</span>
               </div>
               <p className="text-xs text-gray-700 font-semibold">FastAPI + Python 3.12 (MVC Modules)</p>
               <p className="text-[11px] text-gray-500">Pydantic V2, Bcrypt, JWT Bearer, CORS & Error Handler</p>
@@ -102,7 +104,7 @@ export const WelcomeInfoModal: React.FC<WelcomeInfoModalProps> = ({
             <div className="p-4 rounded-2xl border border-gray-200 bg-white shadow-2xs space-y-1.5">
               <div className="flex items-center gap-2 text-blue-600 font-bold text-xs">
                 <Database className="w-4 h-4" />
-                <span>Multi-Database Support</span>
+                <span>{language === 'km' ? 'មូលដ្ឋានទិន្នន័យចម្រុះ' : 'Multi-Database Support'}</span>
               </div>
               <p className="text-xs text-gray-700 font-semibold">SQLAlchemy 2.0 & Alembic 1.16.5</p>
               <p className="text-[11px] text-gray-500">PostgreSQL, MySQL, SQLite, MongoDB dynamic engine</p>
@@ -111,7 +113,7 @@ export const WelcomeInfoModal: React.FC<WelcomeInfoModalProps> = ({
             <div className="p-4 rounded-2xl border border-gray-200 bg-white shadow-2xs space-y-1.5">
               <div className="flex items-center gap-2 text-purple-600 font-bold text-xs">
                 <Radio className="w-4 h-4" />
-                <span>PeerJS & WebSockets</span>
+                <span>{language === 'km' ? 'ការហៅតាម PeerJS & WebSockets' : 'PeerJS & WebSockets'}</span>
               </div>
               <p className="text-xs text-gray-700 font-semibold">WebRTC Audio & Video Calling</p>
               <p className="text-[11px] text-gray-500">Built-in PeerJS signaling broker & Duplex chat socket</p>
@@ -120,7 +122,7 @@ export const WelcomeInfoModal: React.FC<WelcomeInfoModalProps> = ({
             <div className="p-4 rounded-2xl border border-gray-200 bg-white shadow-2xs space-y-1.5">
               <div className="flex items-center gap-2 text-amber-600 font-bold text-xs">
                 <Cloud className="w-4 h-4" />
-                <span>Cloud & Communications</span>
+                <span>{language === 'km' ? 'ពពក Cloud & សារ' : 'Cloud & Communications'}</span>
               </div>
               <p className="text-xs text-gray-700 font-semibold">S3 / Cloudflare R2 & SMTP</p>
               <p className="text-[11px] text-gray-500">Direct presigned media uploads & aiosmtplib mailer</p>
@@ -130,16 +132,20 @@ export const WelcomeInfoModal: React.FC<WelcomeInfoModalProps> = ({
           {/* Quick API Swagger Button */}
           <div className="flex items-center justify-between p-4 bg-blue-50 rounded-2xl border border-blue-100">
             <div>
-              <span className="text-xs font-bold text-blue-900 block">Interactive OpenAPI Swagger UI</span>
-              <span className="text-[11px] text-blue-700">Test live endpoints in your browser</span>
+              <span className="text-xs font-bold text-blue-900 block">
+                {language === 'km' ? 'ឯកសារ OpenAPI Swagger UI' : 'Interactive OpenAPI Swagger UI'}
+              </span>
+              <span className="text-[11px] text-blue-700">
+                {language === 'km' ? 'តេស្ត Endpoints ផ្ទាល់ក្នុង browser' : 'Test live endpoints in your browser'}
+              </span>
             </div>
             <a
-              href="http://localhost:8008/docs"
+              href="/docs"
               target="_blank"
               rel="noopener noreferrer"
               className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1 transition-colors"
             >
-              <span>Explore /docs</span>
+              <span>{language === 'km' ? 'បើក /docs' : 'Explore /docs'}</span>
               <ExternalLink className="w-3 h-3" />
             </a>
           </div>
@@ -147,7 +153,7 @@ export const WelcomeInfoModal: React.FC<WelcomeInfoModalProps> = ({
 
         {/* Footer */}
         <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-          <span className="text-xs text-gray-500">Connect-Hub 2026 • Pair Programming</span>
+          <span className="text-xs text-gray-500">Connect-Hub 2026</span>
           <button
             onClick={() => {
               onClose();
@@ -155,7 +161,7 @@ export const WelcomeInfoModal: React.FC<WelcomeInfoModalProps> = ({
             }}
             className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold cursor-pointer transition-colors"
           >
-            View Full Architecture Page
+            {language === 'km' ? 'មើលទំព័រស្ថាបត្យកម្មពេញលេញ' : 'View Full Architecture Page'}
           </button>
         </div>
       </div>

@@ -1,28 +1,41 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Server, 
-  Database, 
-  Cpu, 
-  Radio, 
-  ShieldCheck, 
-  Layers, 
-  Cloud, 
-  Mail, 
-  Zap, 
-  CheckCircle2, 
-  ExternalLink, 
-  Terminal, 
-  Code2, 
-  Activity, 
-  RefreshCw, 
+import {
+  Server,
+  Database,
+  Cpu,
+  Radio,
+  ShieldCheck,
+  Layers,
+  Cloud,
+  Zap,
+  CheckCircle2,
+  ExternalLink,
+  Terminal,
+  Activity,
+  RefreshCw,
   Sparkles,
-  Network,
   Video,
   Globe,
-  Share2
+  Share2,
+  Users,
+  MessageSquare,
+  Lock,
+  Heart,
+  Compass,
+  ArrowRight,
+  HelpCircle,
+  Award,
+  Flame,
+  Smartphone,
+  PhoneCall,
+  Wifi,
+  WifiOff,
+  Check
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { User } from '../../types';
+import { useLanguage } from '../../context/LanguageContext';
+import appLogo from '../../assets/icons/icon.png';
 
 interface AboutViewProps {
   currentUser?: User;
@@ -33,6 +46,8 @@ export const AboutView: React.FC<AboutViewProps> = ({
   currentUser,
   onStartDemoCall,
 }) => {
+  const { language } = useLanguage();
+  const [activeTab, setActiveTab] = useState<'platform' | 'architecture'>('platform');
   const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const [apiInfo, setApiInfo] = useState<any>(null);
   const [peerId, setPeerId] = useState<string>('');
@@ -44,18 +59,16 @@ export const AboutView: React.FC<AboutViewProps> = ({
     setApiStatus('checking');
     const start = performance.now();
     try {
-      const res = await fetch('http://localhost:8008/health');
-      const data = await res.json();
+      const data = await api.getHealth();
       const end = performance.now();
       setLatency(Math.round(end - start));
       setApiInfo(data);
       setApiStatus('online');
 
-      // Fetch Peer ID
       try {
         const id = await api.getPeerId();
         setPeerId(id);
-      } catch (_) {}
+      } catch (_) { }
     } catch (e) {
       setApiStatus('offline');
       setLatency(null);
@@ -79,326 +92,521 @@ export const AboutView: React.FC<AboutViewProps> = ({
     }
   };
 
+  const getStatusLabel = () => {
+    if (apiStatus === 'online') {
+      return language === 'km' ? 'ដំណើរការ' : 'Online';
+    }
+    if (apiStatus === 'checking') {
+      return language === 'km' ? 'កំពុងពិនិត្យ (Checking...)' : 'Checking...';
+    }
+    return language === 'km' ? 'ដាច់ការតភ្ជាប់ (Offline)' : 'Offline';
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8 pb-16 animate-in fade-in duration-200">
-      {/* Hero Welcome Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1e293b] via-[#0f172a] to-[#1e1b4b] text-white p-5 sm:p-10 shadow-xl border border-slate-700/50">
-        <div className="absolute top-0 right-0 -mt-12 -mr-12 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 -mb-12 -ml-12 w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
+      {/* 1. Hero Welcome Banner */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0f172a] via-[#1e1b4b] to-[#1e293b] text-white p-6 sm:p-10 shadow-2xl border border-slate-700/50">
+        <div className="absolute top-0 right-0 -mt-16 -mr-16 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 -mb-16 -ml-16 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 space-y-3 sm:space-y-4">
-          <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 rounded-full bg-blue-500/15 border border-blue-400/30 text-blue-300 text-[11px] sm:text-xs font-semibold backdrop-blur-md">
-            <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-            <span>Connect-Hub Architecture</span>
-            <span className="bg-blue-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">v1.0.0</span>
+        <div className="relative z-10 space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-semibold backdrop-blur-md">
+              <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+              <span>
+                {language === 'km' ? 'បណ្តាញសង្គមជំនាន់ថ្មី' : 'Next-Generation Social Experience'}
+              </span>
+              <span className="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
+                v1.2.0
+              </span>
+            </div>
+
+            {/* Live Status Pill in Hero */}
+            <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${apiStatus === 'online'
+              ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300'
+              : apiStatus === 'checking'
+                ? 'bg-amber-500/20 border-amber-400/40 text-amber-300'
+                : 'bg-rose-500/20 border-rose-400/40 text-rose-300'
+              }`}>
+              <span className={`w-2 h-2 rounded-full ${apiStatus === 'online' ? 'bg-emerald-400 animate-pulse' : apiStatus === 'checking' ? 'bg-amber-400' : 'bg-rose-400'
+                }`} />
+              <span>
+                {language === 'km' ? 'ស្ថានភាព: ' : 'Status: '}
+                {getStatusLabel()}
+              </span>
+            </div>
           </div>
 
-          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
-            Welcome to <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400">Connect-Hub</span>
-          </h1>
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white p-1.5 shadow-xl border border-white/20 shrink-0">
+              <img src={appLogo} alt="Connect-Hub Logo" className="w-full h-full object-contain" />
+            </div>
+            <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
+              {language === 'km' ? 'ស្វាគមន៍មកកាន់ ' : 'Welcome to '}
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400">
+                Connect-Hub
+              </span>
+            </h1>
+          </div>
 
-          <p className="text-slate-300 text-xs sm:text-base max-w-2xl leading-relaxed">
-            A high-performance modern social platform built with <strong>Python FastAPI</strong> modular MVC, 
-            <strong>SQLAlchemy 2.0</strong>, multi-database support (PostgreSQL, MySQL, SQLite, MongoDB), 
-            built-in <strong>PeerJS & WebRTC</strong> calling, <strong>S3 / R2</strong> storage, and a fluid <strong>React 19 + Tailwind v4</strong> frontend.
+          <p className="text-slate-300 text-sm sm:text-base max-w-2xl leading-relaxed">
+            {language === 'km'
+              ? 'វេទិកាបណ្តាញសង្គមដ៏ទំនើប រហ័ស និងមានសុវត្ថិភាពខ្ពស់ ត្រូវបានបង្កើតឡើងដើម្បីភ្ជាប់ទំនាក់ទំនងមនុស្ស សហគមន៍ និងការចែករំលែកពេលវេលាដ៏មានតម្លៃ ដោយគាំទ្រភាសាខ្មែរពេញលេញ ការហៅទូរស័ព្ទ HD ផ្ទាល់ និងបទពិសោធន៍ដ៏រលូន។'
+              : 'A modern, lightning-fast, and secure social platform built to bring people together, empower communities, and elevate social connections with seamless HD calling, rich multimedia sharing, and bilingual support.'}
           </p>
 
-          {/* Quick Metrics Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 pt-3 sm:pt-4">
-            <div className="bg-slate-800/60 backdrop-blur-md border border-slate-700/60 p-3 sm:p-3.5 rounded-2xl">
-              <span className="text-slate-400 text-[11px] sm:text-xs font-medium block">Backend Engine</span>
-              <span className="text-white text-xs sm:text-base font-bold flex items-center gap-1 mt-1 truncate">
-                <Cpu className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 shrink-0" /> FastAPI Py3.12
-              </span>
-            </div>
+          {/* Tab Switcher in Hero */}
+          <div className="flex flex-wrap gap-2 pt-3">
+            <button
+              onClick={() => setActiveTab('platform')}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer shadow-xs ${activeTab === 'platform'
+                ? 'bg-blue-600 text-white shadow-blue-500/25'
+                : 'bg-white/10 hover:bg-white/15 text-slate-300 border border-white/10'
+                }`}
+            >
+              <Compass className="w-4 h-4" />
+              <span>{language === 'km' ? 'អំពីវេទិកា & លក្ខណៈពិសេស' : 'Platform & Features'}</span>
+            </button>
 
-            <div className="bg-slate-800/60 backdrop-blur-md border border-slate-700/60 p-3.5 rounded-2xl">
-              <span className="text-slate-400 text-xs font-medium block">Database Layer</span>
-              <span className="text-white text-base font-bold flex items-center gap-1.5 mt-1">
-                <Database className="w-4 h-4 text-blue-400" /> SQLAlchemy 2.0
-              </span>
-            </div>
-
-            <div className="bg-slate-800/60 backdrop-blur-md border border-slate-700/60 p-3.5 rounded-2xl">
-              <span className="text-slate-400 text-xs font-medium block">Realtime Signaling</span>
-              <span className="text-white text-base font-bold flex items-center gap-1.5 mt-1">
-                <Radio className="w-4 h-4 text-purple-400" /> PeerJS WebRTC
-              </span>
-            </div>
-
-            <div className="bg-slate-800/60 backdrop-blur-md border border-slate-700/60 p-3.5 rounded-2xl">
-              <span className="text-slate-400 text-xs font-medium block">Object Storage</span>
-              <span className="text-white text-base font-bold flex items-center gap-1.5 mt-1">
-                <Cloud className="w-4 h-4 text-amber-400" /> S3 / R2 / Local
-              </span>
-            </div>
+            <button
+              onClick={() => setActiveTab('architecture')}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer shadow-xs ${activeTab === 'architecture'
+                ? 'bg-purple-600 text-white shadow-purple-500/25'
+                : 'bg-white/10 hover:bg-white/15 text-slate-300 border border-white/10'
+                }`}
+            >
+              <Activity className="w-4 h-4" />
+              <span>{language === 'km' ? 'ស្ថាបត្យកម្ម & ស្ថានភាពប្រព័ន្ធ' : 'Architecture & Live Health'}</span>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Live System Health & Connection Monitor */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-        <div className="flex items-center justify-between pb-4 border-b border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
-              <Activity className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-gray-900">Live API & Service Health</h2>
-              <p className="text-xs text-gray-500">Real-time status of connected backend microservices</p>
-            </div>
-          </div>
-
-          <button
-            onClick={checkHealth}
-            className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${apiStatus === 'checking' ? 'animate-spin' : ''}`} />
-            <span>Refresh Status</span>
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-5">
-          {/* Status Badge 1 */}
-          <div className="p-4 rounded-xl border border-gray-100 bg-gray-50/70 flex items-center justify-between">
-            <div>
-              <span className="text-xs font-semibold text-gray-500 block">FastAPI Server</span>
-              <span className="text-sm font-bold text-gray-900 mt-0.5 block">http://localhost:8008</span>
-              {latency !== null && (
-                <span className="text-[11px] text-emerald-600 font-medium mt-0.5 block">
-                  ⚡ Latency: {latency}ms
-                </span>
-              )}
-            </div>
-            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
-              apiStatus === 'online' 
-                ? 'bg-emerald-100 text-emerald-700' 
-                : apiStatus === 'checking' 
-                ? 'bg-amber-100 text-amber-700' 
-                : 'bg-rose-100 text-rose-700'
-            }`}>
-              <span className={`w-2 h-2 rounded-full ${
-                apiStatus === 'online' ? 'bg-emerald-500' : apiStatus === 'checking' ? 'bg-amber-500' : 'bg-rose-500'
-              }`} />
-              {apiStatus.toUpperCase()}
-            </span>
-          </div>
-
-          {/* Status Badge 2 */}
-          <div className="p-4 rounded-xl border border-gray-100 bg-gray-50/70 flex items-center justify-between">
-            <div>
-              <span className="text-xs font-semibold text-gray-500 block">Active Database</span>
-              <span className="text-sm font-bold text-gray-900 mt-0.5 block">
-                {apiInfo?.database ? 'SQLite / Async Engine' : 'Checking...'}
-              </span>
-              <span className="text-[11px] text-blue-600 font-medium mt-0.5 block">
-                Alembic 1.16.5 Up to date
-              </span>
-            </div>
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
-              <CheckCircle2 className="w-3.5 h-3.5" /> READY
-            </span>
-          </div>
-
-          {/* Status Badge 3 */}
-          <div className="p-4 rounded-xl border border-gray-100 bg-gray-50/70 flex items-center justify-between">
-            <div>
-              <span className="text-xs font-semibold text-gray-500 block">PeerJS WebRTC Broker</span>
-              <span className="text-sm font-bold text-gray-900 mt-0.5 block font-mono text-xs truncate max-w-[130px]">
-                {peerId || 'peer-broker'}
-              </span>
-              <span className="text-[11px] text-purple-600 font-medium mt-0.5 block">
-                WS Signaling Active
-              </span>
-            </div>
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-700">
-              <Radio className="w-3.5 h-3.5" /> LIVE
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Tech Stack Breakdown Grid */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-          <Layers className="w-5 h-5 text-blue-600" />
-          <span>Full Stack Modules & Technologies</span>
-        </h2>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Card 1: Backend Framework */}
-          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-3 hover:border-blue-300 transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
-                <Server className="w-5 h-5" />
+      {/* 2. TAB CONTENT 1: PLATFORM & FEATURES */}
+      {activeTab === 'platform' && (
+        <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-150">
+          {/* Mission & Highlights */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-xs space-y-2.5">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                <Globe className="w-5 h-5" />
               </div>
-              <div>
-                <h3 className="font-bold text-gray-900 text-sm">FastAPI & Python 3.12</h3>
-                <span className="text-xs text-gray-500">Modular MVC Backend Architecture</span>
-              </div>
+              <h3 className="font-bold text-gray-900 text-base">
+                {language === 'km' ? 'គាំទ្រភាសាខ្មែរ ១០០%' : 'Full Bilingual Experience'}
+              </h3>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                {language === 'km'
+                  ? 'រចនាឡើងជាមួយពុម្ពអក្សរជាតិ Kantumruy Pro ដែលងាយស្រួលមើល ផ្តល់បទពិសោធន៍ល្អឥតខ្ចោះទាំងភាសាខ្មែរ និងអង់គ្លេស។'
+                  : 'Engineered from the ground up for Cambodia and the globe with Kantumruy Pro typography and instant language toggling.'}
+              </p>
             </div>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              Cleanly partitioned into modules: <code>auth</code>, <code>users</code>, <code>posts</code>, <code>stories</code>, <code>groups</code>, <code>chat</code>, <code>calls</code>, <code>notifications</code>, and <code>media</code>.
-            </p>
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              <span className="px-2.5 py-0.5 bg-gray-100 text-gray-700 rounded-md text-[11px] font-medium">Uvicorn</span>
-              <span className="px-2.5 py-0.5 bg-gray-100 text-gray-700 rounded-md text-[11px] font-medium">Pydantic V2</span>
-              <span className="px-2.5 py-0.5 bg-gray-100 text-gray-700 rounded-md text-[11px] font-medium">JWT & Bcrypt</span>
-              <span className="px-2.5 py-0.5 bg-gray-100 text-gray-700 rounded-md text-[11px] font-medium">Google OAuth</span>
-            </div>
-          </div>
 
-          {/* Card 2: Multi-Database Support */}
-          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-3 hover:border-blue-300 transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
-                <Database className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900 text-sm">SQLAlchemy 2.0 & Alembic</h3>
-                <span className="text-xs text-gray-500">Multi-Database Async Support</span>
-              </div>
-            </div>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              Universal connection adapter supporting <strong>PostgreSQL</strong> (asyncpg), <strong>MySQL</strong> (aiomysql), <strong>SQLite</strong> (aiosqlite), and <strong>MongoDB</strong> (motor).
-            </p>
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-md text-[11px] font-medium">PostgreSQL</span>
-              <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-md text-[11px] font-medium">MySQL</span>
-              <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-md text-[11px] font-medium">SQLite</span>
-              <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-md text-[11px] font-medium">MongoDB</span>
-              <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-md text-[11px] font-medium">Alembic 1.16.5</span>
-            </div>
-          </div>
-
-          {/* Card 3: Realtime WebSockets & Calling */}
-          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-3 hover:border-blue-300 transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-purple-50 text-purple-600 rounded-xl">
+            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-xs space-y-2.5">
+              <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
                 <Video className="w-5 h-5" />
               </div>
-              <div>
-                <h3 className="font-bold text-gray-900 text-sm">PeerJS & WebSockets</h3>
-                <span className="text-xs text-gray-500">Audio/Video Calling & Live Messaging</span>
+              <h3 className="font-bold text-gray-900 text-base">
+                {language === 'km' ? 'ការហៅជាសំឡេង និងវីដេអូ HD' : 'HD Peer-to-Peer Calling'}
+              </h3>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                {language === 'km'
+                  ? 'ការហៅផ្ទាល់តាមបច្ចេកវិទ្យា WebRTC P2P ដែលមានកម្រិតភាពយឺតទាប (Low Latency) សំឡេងច្បាស់ និងរូបភាពម៉ដ្ឋល្អ។'
+                  : 'Real-time audio and video communications powered by WebRTC P2P signaling with instant ringtone notifications.'}
+              </p>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-xs space-y-2.5">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <h3 className="font-bold text-gray-900 text-base">
+                {language === 'km' ? 'ឯកជនភាព និងសុវត្ថិភាព' : 'Privacy-First & Secure'}
+              </h3>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                {language === 'km'
+                  ? 'ការកំណត់ភាពឯកជនភាពការបង្ហោះ (សាធារណៈ, មិត្តភក្តិ, ឬតែខ្ញុំ) ជាមួយការការពារទិន្នន័យដោយស្តង់ដារ JWT និង HTTPS។'
+                  : 'Granular privacy audiences for your posts, encrypted auth tokens, and safe content moderation controls.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Feature Showcase Grid */}
+          <div className="space-y-4">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <Flame className="w-5 h-5 text-amber-500" />
+              <span>{language === 'km' ? 'លក្ខណៈពិសេសស្នូលរបស់ មជ្ឈមណ្ឌលតភ្ជាប់' : 'Core Platform Features'}</span>
+            </h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Feature Card 1 */}
+              <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-xs space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
+                    <Share2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-900 text-sm">
+                      {language === 'km' ? 'ការបង្កើត និងចែករំលែកការបង្ហោះ' : 'Rich Feed & Interactive Posts'}
+                    </h4>
+                    <span className="text-xs text-gray-400">
+                      {language === 'km' ? 'ការបង្ហោះ រូបភាព អារម្មណ៍ និងទីតាំង' : 'Posts, Photos, Feelings & Locations'}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  {language === 'km'
+                    ? 'ចែករំលែករូបភាព ការបញ្ចេញមតិ អារម្មណ៍ ទីតាំង ការកែសម្រួល ឬលុបការបង្ហោះ និងការចែករំលែកបន្តទៅកាន់មិត្តភក្តិ។'
+                    : 'Create and edit posts with multiple photos, feelings, locations, group tagging, comment discussions, and 7 expressive reactions.'}
+                </p>
+              </div>
+
+              {/* Feature Card 2 */}
+              <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-xs space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl">
+                    <MessageSquare className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-900 text-sm">
+                      {language === 'km' ? 'សារជជែកឆ្លើយឆ្លងផ្ទាល់' : 'Real-time Messaging & Floating Chat'}
+                    </h4>
+                    <span className="text-xs text-gray-400">
+                      {language === 'km' ? 'ការជជែកផ្ទាល់ និងវត្តមានអនឡាញ' : 'Direct Chat & Online Presence'}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  {language === 'km'
+                    ? 'ផ្ញើសារជជែកផ្ទាល់ជាមួយមិត្តភក្តិ ផ្ទាំង Chat អណ្តែត (Floating Window) និងការជូនដំណឹងភ្លាមៗនៅពេលមានសារថ្មី។'
+                    : 'Chat in real-time with online friends, utilize floating chat popups while browsing the feed, and track live status.'}
+                </p>
+              </div>
+
+              {/* Feature Card 3 */}
+              <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-xs space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-purple-50 text-purple-600 rounded-xl">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-900 text-sm">
+                      {language === 'km' ? 'សហគមន៍ និងក្រុមពិភាក្សា' : 'Communities & Interest Groups'}
+                    </h4>
+                    <span className="text-xs text-gray-400">
+                      {language === 'km' ? 'ចូលរួម និងគ្រប់គ្រងក្រុម' : 'Join & Manage Groups'}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  {language === 'km'
+                    ? 'ស្វែងរកក្រុមបច្ចេកវិទ្យា ការអប់រំ ការកម្សាន្ត និងបង្កើតក្រុមផ្ទាល់ខ្លួនដើម្បីប្រមូលផ្តុំសមាជិកដែលមានចំណូលចិត្តដូចគ្នា។'
+                    : 'Discover tech, education, photography, and creative groups. Join discussions or build your own managed community.'}
+                </p>
+              </div>
+
+              {/* Feature Card 4 */}
+              <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-xs space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl">
+                    <Award className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-900 text-sm">
+                      {language === 'km' ? 'កម្រងព័ត៌មាន និងរូបភាពគម្រប' : 'Custom Profiles & Cover Banners'}
+                    </h4>
+                    <span className="text-xs text-gray-400">
+                      {language === 'km' ? 'ការរចនាគណនីផ្ទាល់ខ្លួន' : 'Personalized Branding'}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  {language === 'km'
+                    ? 'កែសម្រួលជីវប្រវត្តិ ជំនាញ តួនាទី គេហទំព័រ ទីតាំង និងជ្រើសរើសរូបភាពគម្របស្អាតៗ ឬបញ្ចូលរូបផ្ទាល់ខ្លួន។'
+                    : 'Personalize your profile with custom avatars, scenic cover photos, bio descriptions, job titles, and portfolio links.'}
+                </p>
               </div>
             </div>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              Integrated signaling broker at <code>/ws/peerjs</code> and duplex chat WebSocket at <code>/api/v1/chat/ws</code> with sub-50ms latency.
-            </p>
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              <span className="px-2.5 py-0.5 bg-purple-50 text-purple-700 rounded-md text-[11px] font-medium">WebRTC</span>
-              <span className="px-2.5 py-0.5 bg-purple-50 text-purple-700 rounded-md text-[11px] font-medium">PeerJS Protocol</span>
-              <span className="px-2.5 py-0.5 bg-purple-50 text-purple-700 rounded-md text-[11px] font-medium">Duplex WebSockets</span>
-              <span className="px-2.5 py-0.5 bg-purple-50 text-purple-700 rounded-md text-[11px] font-medium">Call Logs</span>
-            </div>
           </div>
 
-          {/* Card 4: Cloud Storage & Mailer */}
-          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-3 hover:border-blue-300 transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl">
-                <Cloud className="w-5 h-5" />
+          {/* Community Values & Made in Cambodia Banner */}
+          <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-2xl p-6 border border-blue-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="space-y-1 text-center sm:text-left">
+              <div className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700">
+                <Heart className="w-4 h-4 text-red-500 fill-red-500" />
+                <span>{language === 'km' ? 'បង្កើតឡើងសម្រាប់អ្នក' : 'Crafted with Passion'}</span>
               </div>
-              <div>
-                <h3 className="font-bold text-gray-900 text-sm">S3/R2 Storage & SMTP</h3>
-                <span className="text-xs text-gray-500">Cloud Media & Notifications</span>
+              <h3 className="text-base font-bold text-gray-900">
+                {language === 'km' ? 'ភ្ជាប់ទំនាក់ទំនងមនុស្សរាប់ពាន់នាក់' : 'Connecting thousands of inspiring minds'}
+              </h3>
+              <p className="text-xs text-gray-600">
+                {language === 'km'
+                  ? 'មជ្ឈមណ្ឌលតភ្ជាប់ ប្តេជ្ញាផ្តល់នូវបទពិសោធន៍ប្រព័ន្ធផ្សព្វផ្សាយសង្គមប្រកបដោយការគោរព សុវត្ថិភាព និងភាពច្នៃប្រឌិត។'
+                  : 'Connect Hub is committed to providing a respectful, creative, and safe social media environment for everyone.'}
+              </p>
+            </div>
+
+            <div className="flex gap-2 shrink-0">
+              {onStartDemoCall && (
+                <button
+                  onClick={() => onStartDemoCall('video')}
+                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                >
+                  <PhoneCall className="w-3.5 h-3.5" />
+                  <span>{language === 'km' ? 'សាកល្បងការហៅ' : 'Try Video Call'}</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. TAB CONTENT 2: ARCHITECTURE & SYSTEM STATUS */}
+      {activeTab === 'architecture' && (
+        <div className="space-y-6 animate-in fade-in duration-150">
+          {/* Live System Health & Connection Monitor */}
+          <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-xs border border-gray-200">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100 flex-wrap gap-2">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-gray-900">
+                    {language === 'km' ? 'ស្ថានភាព API & សេវាកម្មផ្ទាល់' : 'Live API & Microservices Health'}
+                  </h2>
+                  <p className="text-xs text-gray-500">
+                    {language === 'km' ? 'ស្ថានភាពដំណើរការរបស់ប្រព័ន្ធ Server តាមពេលវេលាជាក់ស្តែង' : 'Real-time status of backend services & database'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={checkHealth}
+                className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${apiStatus === 'checking' ? 'animate-spin' : ''}`} />
+                <span>{language === 'km' ? 'ផ្ទុកឡើងវិញ' : 'Refresh Status'}</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-5">
+              {/* Status Badge 1: FastAPI Server */}
+              <div className="p-4 rounded-xl border border-gray-100 bg-gray-50/70 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-semibold text-gray-500 block">
+                    {language === 'km' ? 'ម៉ាស៊ីនបម្រើ FastAPI' : 'FastAPI Server'}
+                  </span>
+                  <span className="text-sm font-bold text-gray-900 mt-0.5 block truncate">
+                    {language === 'km' ? 'ស្ថានភាព: ' : 'Status: '}
+                    {getStatusLabel()}
+                  </span>
+                  {latency !== null && (
+                    <span className="text-[11px] text-emerald-600 font-medium mt-0.5 block">
+                      ⚡ {language === 'km' ? 'ល្បឿនឆ្លើយតប' : 'Latency'}: {latency}ms
+                    </span>
+                  )}
+                </div>
+                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${apiStatus === 'online'
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : apiStatus === 'checking'
+                    ? 'bg-amber-100 text-amber-700'
+                    : 'bg-rose-100 text-rose-700'
+                  }`}>
+                  <span className={`w-2 h-2 rounded-full ${apiStatus === 'online' ? 'bg-emerald-500' : apiStatus === 'checking' ? 'bg-amber-500' : 'bg-rose-500'
+                    }`} />
+                  {apiStatus === 'online' ? (language === 'km' ? 'អនឡាញ' : 'ONLINE') : apiStatus === 'checking' ? (language === 'km' ? 'កំពុងពិនិត្យ' : 'CHECKING') : (language === 'km' ? 'អော့ហ្វឡាញ' : 'OFFLINE')}
+                </span>
+              </div>
+
+              {/* Status Badge 2: PostgreSQL / Database */}
+              <div className="p-4 rounded-xl border border-gray-100 bg-gray-50/70 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-semibold text-gray-500 block">
+                    {language === 'km' ? 'មូលដ្ឋានទិន្នន័យ' : 'Active Database'}
+                  </span>
+                  <span className="text-sm font-bold text-gray-900 mt-0.5 block">
+                    PostgreSQL / Supabase
+                  </span>
+                  <span className="text-[11px] text-blue-600 font-medium mt-0.5 block">
+                    {language === 'km' ? 'Alembic ធ្វើសមកាលកម្មរួច' : 'Alembic Migrations Synced'}
+                  </span>
+                </div>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{language === 'km' ? 'សកម្ម' : 'ACTIVE'}</span>
+                </span>
+              </div>
+
+              {/* Status Badge 3: WebRTC Signaling */}
+              <div className="p-4 rounded-xl border border-gray-100 bg-gray-50/70 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-semibold text-gray-500 block">
+                    {language === 'km' ? 'ប្រព័ន្ធ PeerJS WebRTC' : 'PeerJS WebRTC Broker'}
+                  </span>
+                  <span className="text-sm font-bold text-gray-900 mt-0.5 block font-mono text-xs truncate max-w-[130px]">
+                    {peerId || 'peer-broker'}
+                  </span>
+                  <span className="text-[11px] text-purple-600 font-medium mt-0.5 block">
+                    {language === 'km' ? 'ការហៅជាសំឡេង/វីដេអូសកម្ម' : 'P2P Audio/Video Live'}
+                  </span>
+                </div>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-700">
+                  <Radio className="w-3.5 h-3.5" />
+                  <span>{language === 'km' ? 'រួចរាល់' : 'READY'}</span>
+                </span>
               </div>
             </div>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              AWS S3 and Cloudflare R2 compatible file uploads with direct presigned URLs, local disk fallback in <code>/uploads</code>, and asynchronous SMTP onboarding emails.
-            </p>
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 rounded-md text-[11px] font-medium">AWS S3</span>
-              <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 rounded-md text-[11px] font-medium">Cloudflare R2</span>
-              <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 rounded-md text-[11px] font-medium">Local Disk</span>
-              <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 rounded-md text-[11px] font-medium">aiosmtplib</span>
+          </div>
+
+          {/* Tech Stack Breakdown Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Card 1: Backend */}
+            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
+                  <Server className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-sm">FastAPI & Python 3.12</h3>
+                  <span className="text-xs text-gray-500">
+                    {language === 'km' ? 'ស្ថាបត្យកម្ម Modular MVC Backend' : 'Modular MVC Architecture'}
+                  </span>
+                </div>
+              </div>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                {language === 'km'
+                  ? 'រៀបចំជាម៉ូឌុលស្អាតបាត៖ auth, users, posts, stories, groups, chat, calls, notifications, events, និង media។'
+                  : 'Cleanly partitioned into modules: auth, users, posts, stories, groups, chat, calls, notifications, and media.'}
+              </p>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                <span className="px-2.5 py-0.5 bg-gray-100 text-gray-700 rounded-md text-[11px] font-medium">Uvicorn</span>
+                <span className="px-2.5 py-0.5 bg-gray-100 text-gray-700 rounded-md text-[11px] font-medium">Pydantic V2</span>
+                <span className="px-2.5 py-0.5 bg-gray-100 text-gray-700 rounded-md text-[11px] font-medium">Google OAuth</span>
+              </div>
+            </div>
+
+            {/* Card 2: Database Layer */}
+            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
+                  <Database className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-sm">SQLAlchemy 2.0 & Multi-DB</h3>
+                  <span className="text-xs text-gray-500">
+                    {language === 'km' ? 'ប្រព័ន្ធ ORM មូលដ្ឋានទិន្នន័យ Async' : 'Async Database ORM'}
+                  </span>
+                </div>
+              </div>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                {language === 'km'
+                  ? 'គាំទ្រ PostgreSQL (asyncpg/Supabase), SQLite (aiosqlite), MySQL (aiomysql) និង MongoDB (Motor)។'
+                  : 'Universal engine supporting PostgreSQL (asyncpg/Supabase), SQLite (aiosqlite), and MySQL (aiomysql).'}
+              </p>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-md text-[11px] font-medium">PostgreSQL</span>
+                <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-md text-[11px] font-medium">Alembic</span>
+                <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-md text-[11px] font-medium">Cloudflare R2</span>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Interactive Live API Endpoint Tester */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-          <div className="flex items-center gap-2.5">
-            <Terminal className="w-5 h-5 text-indigo-600" />
-            <h2 className="text-base font-bold text-gray-900">Interactive API Playground</h2>
-          </div>
-          <span className="text-xs text-gray-400">Click an endpoint to test live response</span>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => runEndpointTest('GET /health', () => fetch('http://localhost:8008/health').then(r => r.json()))}
-            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold font-mono flex items-center gap-1.5 cursor-pointer transition-colors"
-          >
-            <span className="text-emerald-600 font-bold">GET</span> /health
-          </button>
-
-          <button
-            onClick={() => runEndpointTest('GET /api/v1/posts', () => api.getFeed())}
-            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold font-mono flex items-center gap-1.5 cursor-pointer transition-colors"
-          >
-            <span className="text-emerald-600 font-bold">GET</span> /api/v1/posts
-          </button>
-
-          <button
-            onClick={() => runEndpointTest('GET /api/v1/stories', () => api.getStories())}
-            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold font-mono flex items-center gap-1.5 cursor-pointer transition-colors"
-          >
-            <span className="text-emerald-600 font-bold">GET</span> /api/v1/stories
-          </button>
-
-          <button
-            onClick={() => runEndpointTest('GET /api/v1/groups', () => api.getGroups())}
-            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold font-mono flex items-center gap-1.5 cursor-pointer transition-colors"
-          >
-            <span className="text-emerald-600 font-bold">GET</span> /api/v1/groups
-          </button>
-
-          <button
-            onClick={() => runEndpointTest('GET /api/v1/users', () => api.getUsers())}
-            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold font-mono flex items-center gap-1.5 cursor-pointer transition-colors"
-          >
-            <span className="text-emerald-600 font-bold">GET</span> /api/v1/users
-          </button>
-
-          <button
-            onClick={() => runEndpointTest('GET /peerjs/id', () => api.getPeerId())}
-            className="px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-900 rounded-xl text-xs font-semibold font-mono flex items-center gap-1.5 cursor-pointer transition-colors"
-          >
-            <span className="text-purple-600 font-bold">GET</span> /peerjs/id
-          </button>
-        </div>
-
-        {/* Live Test Output Window */}
-        {testResult && (
-          <div className="mt-4 p-4 rounded-xl bg-slate-900 text-emerald-400 font-mono text-xs overflow-x-auto max-h-72 border border-slate-800">
-            <div className="flex items-center justify-between text-slate-400 pb-2 mb-2 border-b border-slate-800 text-[11px]">
-              <span>Response:</span>
-              <button onClick={() => setTestResult(null)} className="hover:text-white cursor-pointer">Clear</button>
+          {/* Interactive Live API Endpoint Tester */}
+          <div className="bg-white rounded-2xl p-6 shadow-xs border border-gray-200 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <Terminal className="w-5 h-5 text-indigo-600" />
+                <h2 className="text-base font-bold text-gray-900">
+                  {language === 'km' ? 'ផ្ទាំងតេស្ត API ផ្ទាល់ (Interactive Tester)' : 'Live API Testing Console'}
+                </h2>
+              </div>
+              <span className="text-xs text-gray-400">
+                {language === 'km' ? 'ចុចលើ Endpoint ដើម្បីមើលការឆ្លើយតប' : 'Click an endpoint to run live test'}
+              </span>
             </div>
-            <pre>{testResult}</pre>
-          </div>
-        )}
-      </div>
 
-      {/* Useful Links & Docs */}
-      <div className="flex items-center justify-between p-5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-100">
-        <div>
-          <h3 className="font-bold text-gray-900 text-sm">Interactive Swagger Documentation</h3>
-          <p className="text-xs text-gray-600 mt-0.5">Explore all endpoints, schemas, parameters, and testing consoles.</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => runEndpointTest('GET /health', () => api.getHealth())}
+                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold font-mono flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <span className="text-emerald-600 font-bold">GET</span> /health
+              </button>
+
+              <button
+                onClick={() => runEndpointTest('GET /api/v1/posts', () => api.getFeed())}
+                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold font-mono flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <span className="text-emerald-600 font-bold">GET</span> /api/v1/posts
+              </button>
+
+              <button
+                onClick={() => runEndpointTest('GET /api/v1/stories', () => api.getStories())}
+                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold font-mono flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <span className="text-emerald-600 font-bold">GET</span> /api/v1/stories
+              </button>
+
+              <button
+                onClick={() => runEndpointTest('GET /api/v1/groups', () => api.getGroups())}
+                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold font-mono flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <span className="text-emerald-600 font-bold">GET</span> /api/v1/groups
+              </button>
+
+              <button
+                onClick={() => runEndpointTest('GET /api/v1/users', () => api.getUsers())}
+                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold font-mono flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <span className="text-emerald-600 font-bold">GET</span> /api/v1/users
+              </button>
+
+              <button
+                onClick={() => runEndpointTest('GET /peerjs/id', () => api.getPeerId())}
+                className="px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-900 rounded-xl text-xs font-semibold font-mono flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <span className="text-purple-600 font-bold">GET</span> /peerjs/id
+              </button>
+            </div>
+
+            {/* Live Test Output Window */}
+            {testResult && (
+              <div className="mt-4 p-4 rounded-xl bg-slate-900 text-emerald-400 font-mono text-xs overflow-x-auto max-h-72 border border-slate-800 animate-in fade-in duration-100">
+                <div className="flex items-center justify-between text-slate-400 pb-2 mb-2 border-b border-slate-800 text-[11px]">
+                  <span>{language === 'km' ? 'លទ្ធផលឆ្លើយតប (Response):' : 'Response Payload:'}</span>
+                  <button onClick={() => setTestResult(null)} className="hover:text-white cursor-pointer">
+                    {language === 'km' ? 'សម្អាត' : 'Clear'}
+                  </button>
+                </div>
+                <pre>{testResult}</pre>
+              </div>
+            )}
+          </div>
+
+          {/* Swagger UI Docs Card */}
+          <div className="flex items-center justify-between p-5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-100">
+            <div>
+              <h3 className="font-bold text-gray-900 text-sm">
+                {language === 'km' ? 'ឯកសារ Swagger API អន្តរកម្ម' : 'Interactive Swagger Documentation'}
+              </h3>
+              <p className="text-xs text-gray-600 mt-0.5">
+                {language === 'km'
+                  ? 'ស្វែងយល់ពីគ្រប់ Endpoints, Schemas និងតេស្តដោយផ្ទាល់។'
+                  : 'Explore all endpoints, schemas, parameters, and testing consoles.'}
+              </p>
+            </div>
+            <a
+              href="/docs"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+            >
+              <span>{language === 'km' ? 'បើក Swagger UI' : 'Open Swagger UI'}</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
         </div>
-        <a
-          href="http://localhost:8008/docs"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-        >
-          <span>Open Swagger UI</span>
-          <ExternalLink className="w-3.5 h-3.5" />
-        </a>
-      </div>
+      )}
     </div>
   );
 };

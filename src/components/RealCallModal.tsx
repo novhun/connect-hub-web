@@ -15,6 +15,8 @@ import { User } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
 import { realtime, RealtimeMessage } from '../services/realtime';
+import { settingsApi } from '../modules/settings/api';
+import { startRingback, stopRingtone } from '../services/ringtone';
 
 interface RealCallModalProps {
   targetUser: User;
@@ -284,6 +286,27 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
     }
     return () => clearInterval(interval);
   }, [callStatus]);
+
+  // Ringback tone for the caller while waiting for the other side to answer.
+  useEffect(() => {
+    if (role !== 'caller' || callStatus !== 'ringing') {
+      stopRingtone();
+      return;
+    }
+    let cancelled = false;
+    settingsApi
+      .getSettings()
+      .then((s) => {
+        if (!cancelled && s.callRingtone !== false) startRingback();
+      })
+      .catch(() => {
+        if (!cancelled) startRingback();
+      });
+    return () => {
+      cancelled = true;
+      stopRingtone();
+    };
+  }, [role, callStatus]);
 
   const formatTime = (secs: number) => {
     const mins = Math.floor(secs / 60);

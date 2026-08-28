@@ -19,6 +19,7 @@ import {
 import { User, NotificationItem } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
+import appLogo from '../assets/icons/icon.png';
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -126,8 +127,12 @@ export const Header: React.FC<HeaderProps> = ({
           className="flex items-center gap-1.5 sm:gap-2.5 cursor-pointer select-none"
           onClick={() => setActiveTab('home')}
         >
-          <div className="bg-[#3b82f6] text-white p-1.5 sm:p-2 rounded-xl flex items-center justify-center shadow-xs hover:bg-blue-600 transition-colors">
-            <Link2 className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden flex items-center justify-center shadow-xs bg-white border border-gray-100 shrink-0">
+            <img 
+              src={appLogo} 
+              alt="ConnectHub Logo" 
+              className="w-full h-full object-contain" 
+            />
           </div>
           <span className="text-base sm:text-xl font-bold text-gray-900 tracking-tight hidden xs:inline">
             Connect<span className="text-[#2563eb]">Hub</span>
@@ -254,10 +259,12 @@ export const Header: React.FC<HeaderProps> = ({
               ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
               : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
             }`}
-          title="Connect-Hub Architecture & Live API Status"
+          title={language === 'km' ? 'ស្ថាបត្យកម្ម & ស្ថានភាពប្រព័ន្ធ Connect-Hub' : 'Connect-Hub Architecture & Live API Status'}
         >
           <span className={`w-2 h-2 rounded-full ${activeTab === 'about' ? 'bg-white' : 'bg-emerald-500 animate-pulse'}`} />
-          <span className="font-mono text-[11px]">Status: Online</span>
+          <span className="font-medium text-[11px]">
+            {language === 'km' ? 'ស្ថានភាព: អនឡាញ' : 'Status: Online'}
+          </span>
         </button>
 
         <nav className="flex items-center gap-1 sm:gap-1.5">
@@ -365,7 +372,7 @@ export const Header: React.FC<HeaderProps> = ({
                     className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 cursor-pointer"
                   >
                     <Sparkles className="w-4 h-4 text-indigo-500" />
-                    <span>Tech & Architecture Info</span>
+                    <span>{language === 'km' ? 'អំពីវេទិកា & ស្ថាបត្យកម្ម' : 'About & System Status'}</span>
                   </button>
                   <button
                     onClick={() => {

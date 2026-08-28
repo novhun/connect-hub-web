@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { Shield, Bell, Globe, Check, Loader2 } from 'lucide-react';
+import { Shield, Bell, Globe, Check, Loader2, User as UserIcon, Camera, Image as ImageIcon, Edit3, MapPin, Briefcase } from 'lucide-react';
 import { User } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { settingsApi } from '../../modules/settings/api';
 import { api } from '../../services/api';
+import { EditProfileModal } from '../EditProfileModal';
 
 interface SettingsViewProps {
   currentUser: User;
+  onUpdateProfile?: (patch: Partial<User>) => void;
 }
 
-export const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
+export const SettingsView: React.FC<SettingsViewProps> = ({ currentUser, onUpdateProfile }) => {
   const { language, setLanguage, t } = useLanguage();
   const [isLoading, setIsLoading] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
@@ -18,6 +20,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
   const [showOnlineStatus, setShowOnlineStatus] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
 
   useEffect(() => {
     settingsApi
@@ -70,6 +73,76 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
         <div>
           <h1 className="text-lg sm:text-xl font-bold text-gray-900">{t('settings.title')}</h1>
           <p className="text-xs text-gray-500 mt-0.5 sm:mt-1">{t('settings.subtitle')}</p>
+        </div>
+      </div>
+
+      {/* Account Profile & Cover Preview Card */}
+      <div className="bg-white rounded-2xl shadow-xs border border-gray-100 overflow-hidden">
+        {/* Cover Banner */}
+        <div className="relative h-32 sm:h-40 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 overflow-hidden">
+          {currentUser.coverImage ? (
+            <img
+              src={api.getMediaUrl(currentUser.coverImage)}
+              alt="Account cover"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600" />
+          )}
+          <button
+            onClick={() => setIsEditProfileModalOpen(true)}
+            className="absolute bottom-2.5 right-2.5 bg-black/50 hover:bg-black/70 backdrop-blur-xs text-white text-xs font-semibold px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+          >
+            <ImageIcon className="w-3.5 h-3.5" />
+            <span>{language === 'km' ? 'កែប្រែរូបគម្រប' : 'Edit Cover Photo'}</span>
+          </button>
+        </div>
+
+        {/* Profile Details Container */}
+        <div className="p-4 sm:p-5 pt-0">
+          <div className="flex items-end justify-between flex-wrap gap-3 -mt-8 sm:-mt-10 mb-3">
+            <div className="relative">
+              <img
+                src={api.getMediaUrl(currentUser.avatar)}
+                alt={currentUser.name}
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-4 border-white shadow-md object-cover bg-white"
+              />
+              <button
+                onClick={() => setIsEditProfileModalOpen(true)}
+                className="absolute bottom-0 right-0 bg-blue-600 text-white p-1 rounded-full border-2 border-white cursor-pointer hover:bg-blue-700 shadow-xs"
+                title={language === 'km' ? 'កែប្រែរូបភាពគណនី' : 'Change Avatar'}
+              >
+                <Camera className="w-3 h-3" />
+              </button>
+            </div>
+
+            <button
+              onClick={() => setIsEditProfileModalOpen(true)}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>{language === 'km' ? 'កែប្រែគណនី និងរូបភាពគម្រប' : 'Edit Profile & Cover'}</span>
+            </button>
+          </div>
+
+          <div>
+            <h3 className="font-bold text-gray-900 text-base">{currentUser.name}</h3>
+            <p className="text-xs text-gray-500 font-medium">
+              {currentUser.role || 'Member'}
+              {currentUser.jobTitle ? ` • ${currentUser.jobTitle}` : ''}
+            </p>
+            {currentUser.bio && (
+              <p className="text-xs text-gray-700 mt-2 line-clamp-2 leading-relaxed">
+                {currentUser.bio}
+              </p>
+            )}
+            {currentUser.location && (
+              <div className="flex items-center gap-1 text-xs text-gray-500 mt-2">
+                <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                <span>{currentUser.location}</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -207,6 +280,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
           {saving ? t('settings.saving') : t('settings.saveChanges')}
         </button>
       </div>
+
+      {/* Edit Profile Modal */}
+      {isEditProfileModalOpen && (
+        <EditProfileModal
+          currentUser={currentUser}
+          onClose={() => setIsEditProfileModalOpen(false)}
+          onUpdateProfile={(patch) => {
+            onUpdateProfile?.(patch);
+          }}
+        />
+      )}
     </div>
   );
 };

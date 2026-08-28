@@ -3,6 +3,7 @@ import { X, Check, Bell, MessageSquare, ThumbsUp, Users, Phone } from 'lucide-re
 import { NotificationItem } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
+import { formatNotificationContent, formatNotificationTimestamp } from '../utils/notificationHelpers';
 
 interface NotificationsPopoverProps {
   notifications: NotificationItem[];
@@ -45,9 +46,12 @@ export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({
         className="bg-white w-[calc(100vw-24px)] sm:w-full max-w-sm rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col m-2 sm:m-3"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Header with Title, Count, Mark all as read */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/70">
           <div className="flex items-center gap-2">
-            <h3 className="font-bold text-gray-900 text-sm">{t('modals.notificationsTitle')}</h3>
+            <h3 className="font-bold text-gray-900 text-sm">
+              {t('modals.notificationsTitle') || (language === 'km' ? 'ការជូនដំណឹង' : 'Notifications')}
+            </h3>
             <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">
               {unreadCount} {language === 'km' ? 'ថ្មី' : 'New'}
             </span>
@@ -57,7 +61,7 @@ export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({
               onClick={onMarkAllRead}
               className="text-xs text-blue-600 font-semibold hover:underline cursor-pointer"
             >
-              {t('modals.markAllRead')}
+              {t('modals.markAllRead') || (language === 'km' ? 'សម្គាល់ថាបានអានទាំងអស់' : 'Mark all as read')}
             </button>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 cursor-pointer">
               <X className="w-4 h-4" />
@@ -65,39 +69,48 @@ export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({
           </div>
         </div>
 
+        {/* Notifications List */}
         <div className="max-h-96 overflow-y-auto divide-y divide-gray-100">
-          {notifications.map((notif) => (
-            <div
-              key={notif.id}
-              onClick={() => onNotificationClick(notif)}
-              className={`p-3 flex items-start gap-3 cursor-pointer hover:bg-gray-50 transition-colors ${
-                !notif.isRead ? 'bg-blue-50/40' : ''
-              }`}
-            >
-              <div className="relative shrink-0">
-                <img
-                  src={api.getMediaUrl(notif.user.avatar)}
-                  alt={notif.user.name}
-                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-gray-200"
-                />
-                <div className="absolute -bottom-1 -right-1 bg-white p-1 rounded-full shadow-xs">
-                  {getIcon(notif.type)}
-                </div>
-              </div>
-
-              <div className="flex-1 text-xs">
-                <p className="text-gray-800 leading-snug">
-                  <span className="font-bold text-gray-900">{notif.user.name}</span>{' '}
-                  {notif.content}
-                </p>
-                <span className="text-gray-400 text-[10px] mt-1 block">{notif.timestamp}</span>
-              </div>
-
-              {!notif.isRead && (
-                <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0 mt-2" />
-              )}
+          {notifications.length === 0 ? (
+            <div className="py-8 text-center text-xs text-gray-400">
+              {language === 'km' ? 'មិនទាន់មានការជូនដំណឹងនៅឡើយទេ' : 'No notifications yet'}
             </div>
-          ))}
+          ) : (
+            notifications.map((notif) => (
+              <div
+                key={notif.id}
+                onClick={() => onNotificationClick(notif)}
+                className={`p-3 flex items-start gap-3 cursor-pointer hover:bg-gray-50 transition-colors ${
+                  !notif.isRead ? 'bg-blue-50/40' : ''
+                }`}
+              >
+                <div className="relative shrink-0">
+                  <img
+                    src={api.getMediaUrl(notif.user.avatar)}
+                    alt={notif.user.name}
+                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-gray-200"
+                  />
+                  <div className="absolute -bottom-1 -right-1 bg-white p-1 rounded-full shadow-xs">
+                    {getIcon(notif.type)}
+                  </div>
+                </div>
+
+                <div className="flex-1 text-xs">
+                  <p className="text-gray-800 leading-snug">
+                    <span className="font-bold text-gray-900">{notif.user.name}</span>{' '}
+                    {formatNotificationContent(notif.content, language)}
+                  </p>
+                  <span className="text-gray-400 text-[10px] mt-1 block">
+                    {formatNotificationTimestamp(notif.timestamp, language)}
+                  </span>
+                </div>
+
+                {!notif.isRead && (
+                  <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0 mt-2" />
+                )}
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
