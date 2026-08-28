@@ -1,6 +1,6 @@
 import { Post, Story, Group, User, ReactionType, NotificationItem, DirectMessage, EventItem, SupportMessage, UserSettings, FriendStatusInfo, FriendRequestItem } from '../types';
 
-const API_BASE = (((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:8008').replace(/\/$/, '');
+const API_BASE = (((import.meta as any).env?.VITE_API_URL as string) || 'https://connect-hub-api.fastapicloud.dev').replace(/\/$/, '');
 const API_URL = `${API_BASE}/api/v1`;
 
 class ApiService {
@@ -50,7 +50,7 @@ class ApiService {
       try {
         const errorData = await response.json();
         errorMsg = errorData.message || errorData.detail || errorMsg;
-      } catch (_) {}
+      } catch (_) { }
       throw new Error(errorMsg);
     }
 
