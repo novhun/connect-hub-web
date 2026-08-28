@@ -30,11 +30,16 @@ import {
   PhoneCall,
   Wifi,
   WifiOff,
-  Check
+  Check,
+  Copy,
+  GitBranch,
+  Star,
+  Code2
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { User } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
+import { copyToClipboard } from '../../utils/clipboard';
 import appLogo from '../../assets/icons/icon.png';
 
 interface AboutViewProps {
@@ -47,13 +52,14 @@ export const AboutView: React.FC<AboutViewProps> = ({
   onStartDemoCall,
 }) => {
   const { language } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'platform' | 'architecture'>('platform');
+  const [activeTab, setActiveTab] = useState<'platform' | 'architecture' | 'opensource'>('platform');
   const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const [apiInfo, setApiInfo] = useState<any>(null);
   const [peerId, setPeerId] = useState<string>('');
   const [latency, setLatency] = useState<number | null>(null);
   const [testResult, setTestResult] = useState<string | null>(null);
   const [testingEndpoint, setTestingEndpoint] = useState<string | null>(null);
+  const [copiedRepo, setCopiedRepo] = useState<string | null>(null);
 
   const checkHealth = async () => {
     setApiStatus('checking');
@@ -79,6 +85,15 @@ export const AboutView: React.FC<AboutViewProps> = ({
     checkHealth();
   }, []);
 
+  const handleCopyClone = async (repoUrl: string, id: string) => {
+    const cmd = `git clone ${repoUrl}`;
+    const success = await copyToClipboard(cmd);
+    if (success) {
+      setCopiedRepo(id);
+      setTimeout(() => setCopiedRepo(null), 2500);
+    }
+  };
+
   const runEndpointTest = async (name: string, fn: () => Promise<any>) => {
     setTestingEndpoint(name);
     setTestResult(null);
@@ -101,6 +116,37 @@ export const AboutView: React.FC<AboutViewProps> = ({
     }
     return language === 'km' ? 'ដាច់ការតភ្ជាប់ (Offline)' : 'Offline';
   };
+
+  const openSourceRepos = [
+    {
+      id: 'web',
+      name: 'connect-hub-web',
+      type: language === 'km' ? 'កម្មវិធី Frontend Web' : 'Frontend Web Application',
+      description:
+        language === 'km'
+          ? 'វេបសាយ Frontend ទំនើប គាំទ្រភាសាខ្មែរ ១០០% ការហៅទូរស័ព្ទ HD ផ្ទាល់តាម WebRTC ឃ្លីបវីដេអូខ្លី (Clips) សាច់រឿង (Stories) និងសារជជែកឆ្លើយឆ្លងភ្លាមៗ។'
+          : 'Modern bilingual (Khmer/English) social frontend featuring WebRTC HD peer-to-peer audio/video calls, vertical snap Clips, Stories, real-time floating chat, and responsive UI.',
+      gitUrl: 'https://github.com/novhun/connect-hub-web.git',
+      webUrl: 'https://github.com/novhun/connect-hub-web',
+      tags: ['React 19', 'TypeScript', 'Vite', 'TailwindCSS', 'WebRTC', 'PWA'],
+      color: 'from-blue-600 to-indigo-600',
+      badgeBg: 'bg-blue-50 text-blue-700 border-blue-200',
+    },
+    {
+      id: 'api',
+      name: 'connect-hub-api',
+      type: language === 'km' ? 'ម៉ាស៊ីនបម្រើ Backend REST API' : 'Backend REST API Server',
+      description:
+        language === 'km'
+          ? 'ម៉ាស៊ីនបម្រើ REST API ល្បឿនលឿន ជាមួយស្ថាបត្យកម្ម Modular MVC ការផ្ទៀងផ្ទាត់ JWT ការធ្វើចំណាកស្រុកស្វ័យប្រវត្តិ Alembic និងប្រព័ន្ធ PeerJS Signaling។'
+          : 'High-performance async REST API backend with modular MVC architecture, JWT auth, WebSocket real-time messaging, Alembic migrations, PostgreSQL, and WebRTC broker.',
+      gitUrl: 'https://github.com/novhun/connect-hub-api.git',
+      webUrl: 'https://github.com/novhun/connect-hub-api',
+      tags: ['FastAPI', 'Python 3.12', 'PostgreSQL', 'SQLAlchemy 2.0', 'Alembic', 'PeerJS'],
+      color: 'from-emerald-600 to-teal-600',
+      badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    },
+  ];
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8 pb-16 animate-in fade-in duration-200">
@@ -144,7 +190,7 @@ export const AboutView: React.FC<AboutViewProps> = ({
             <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
               {language === 'km' ? 'ស្វាគមន៍មកកាន់ ' : 'Welcome to '}
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400">
-                មជ្ឈមណ្ឌលតភ្ជាប់
+                Connect Hub
               </span>
             </h1>
           </div>
@@ -169,6 +215,17 @@ export const AboutView: React.FC<AboutViewProps> = ({
             </button>
 
             <button
+              onClick={() => setActiveTab('opensource')}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer shadow-xs ${activeTab === 'opensource'
+                ? 'bg-emerald-600 text-white shadow-emerald-500/25'
+                : 'bg-white/10 hover:bg-white/15 text-slate-300 border border-white/10'
+                }`}
+            >
+              <Code2 className="w-4 h-4 text-emerald-400" />
+              <span>{language === 'km' ? 'កូដបើកចំហ (Open Source)' : 'Open Source Repositories'}</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('architecture')}
               className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer shadow-xs ${activeTab === 'architecture'
                 ? 'bg-purple-600 text-white shadow-purple-500/25'
@@ -176,13 +233,170 @@ export const AboutView: React.FC<AboutViewProps> = ({
                 }`}
             >
               <Activity className="w-4 h-4" />
-              <span>{language === 'km' ? 'ស្ថាបត្យកម្ម & ស្ថានភាពប្រព័ន្ធ' : 'Architecture & Live Health'}</span>
+              <span>{language === 'km' ? 'ស្ថាបត្យកម្ម & ស្ថានភាពប្រព័ន្ធ' : 'Architecture & Health'}</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* 2. TAB CONTENT 1: PLATFORM & FEATURES */}
+      {/* 2. OPEN SOURCE HIGHLIGHT BANNER (Shown across tabs) */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-7 text-white border border-indigo-500/20 shadow-xl space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-white border border-white/15 shadow-inner">
+              <Code2 className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-extrabold text-white">
+                  {language === 'km' ? 'គម្រោងកូដបើកចំហ (Open Source Project)' : 'Open Source Repositories'}
+                </h2>
+                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  MIT License
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {language === 'km'
+                  ? 'គម្រោងនេះជា Open Source សម្រាប់សហគមន៍អ្នកអភិវឌ្ឍន៍។ អ្នកអាចទាញយក និងចូលរួមអភិវឌ្ឍន៍នៅលើ GitHub!'
+                  : 'Connect-Hub is 100% open source. Check out the frontend and backend repositories on GitHub!'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Repositories Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+          {openSourceRepos.map((repo) => (
+            <div
+              key={repo.id}
+              className="bg-slate-800/80 rounded-2xl p-4 sm:p-5 border border-slate-700/70 hover:border-indigo-400/50 transition-all flex flex-col justify-between space-y-4 shadow-lg backdrop-blur-sm group"
+            >
+              <div className="space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-slate-700 to-slate-600 flex items-center justify-center text-white border border-white/10 shrink-0">
+                      <GitBranch className="w-4 h-4 text-emerald-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-mono font-bold text-sm sm:text-base text-white group-hover:text-indigo-300 transition-colors">
+                        {repo.name}
+                      </h3>
+                      <span className="text-[11px] text-slate-400">{repo.type}</span>
+                    </div>
+                  </div>
+
+                  <a
+                    href={repo.webUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1.5 rounded-lg bg-slate-700/80 hover:bg-indigo-600 text-slate-300 hover:text-white transition-all cursor-pointer"
+                    title="View on GitHub"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                </div>
+
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  {repo.description}
+                </p>
+
+                {/* Tech Tags */}
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {repo.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="px-2 py-0.5 rounded-md bg-slate-900/80 text-slate-300 text-[10px] font-semibold border border-slate-700"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Clone Command Box & Action Buttons */}
+              <div className="space-y-2 pt-2 border-t border-slate-700/60">
+                <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-950/80 border border-slate-800 font-mono text-xs text-slate-300">
+                  <span className="truncate text-[11px] text-emerald-400 select-all">
+                    git clone {repo.gitUrl}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyClone(repo.gitUrl, repo.id)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer shrink-0 ${copiedRepo === repo.id
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                      }`}
+                  >
+                    {copiedRepo === repo.id ? (
+                      <>
+                        <Check className="w-3 h-3 text-white" />
+                        <span>{language === 'km' ? 'បានចម្លង!' : 'Copied!'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3 text-slate-400" />
+                        <span>{language === 'km' ? 'ចម្លង' : 'Copy'}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <a
+                    href={repo.webUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-2 px-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-98"
+                  >
+                    <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                    <span>{language === 'km' ? 'មើលនៅលើ GitHub' : 'View Repository'}</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* MIT License Full Text Card */}
+        <div className="mt-4 bg-slate-900/60 rounded-2xl border border-slate-700/60 p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 border border-amber-400/20">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <h3 className="text-sm font-bold text-white">
+              {language === 'km' ? 'អាជ្ញាប័ណ្ណ MIT License' : 'MIT License'}
+            </h3>
+            <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-400/20 px-2 py-0.5 rounded-full font-bold">
+              2026 novhun
+            </span>
+          </div>
+          <pre className="text-slate-400 text-[11px] leading-relaxed font-mono whitespace-pre-wrap break-words bg-slate-950/50 rounded-xl p-4 border border-slate-800 select-all overflow-x-auto">
+            {`MIT License
+
+Copyright (c) 2026 novhun
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.`}
+          </pre>
+        </div>
+      </div>
+
+      {/* 3. TAB CONTENT 1: PLATFORM & FEATURES */}
       {activeTab === 'platform' && (
         <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-150">
           {/* Mission & Highlights */}
@@ -360,7 +574,7 @@ export const AboutView: React.FC<AboutViewProps> = ({
         </div>
       )}
 
-      {/* 3. TAB CONTENT 2: ARCHITECTURE & SYSTEM STATUS */}
+      {/* 4. TAB CONTENT 2: ARCHITECTURE & SYSTEM STATUS */}
       {activeTab === 'architecture' && (
         <div className="space-y-6 animate-in fade-in duration-150">
           {/* Live System Health & Connection Monitor */}
