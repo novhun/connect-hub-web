@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Image as ImageIcon, Sparkles, Upload } from 'lucide-react';
+import { X, Image as ImageIcon, Sparkles, Upload, Loader2 } from 'lucide-react';
 import { Story, User } from '../types';
 import { useLanguage } from '../context/LanguageContext';
+import { api } from '../services/api';
 
 interface CreateStoryModalProps {
   currentUser: User;
@@ -25,6 +26,7 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
   const [selectedImage, setSelectedImage] = useState(SAMPLE_STORY_BACKGROUNDS[0]);
   const [caption, setCaption] = useState('');
   const [customUrl, setCustomUrl] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,31 +44,44 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
     onClose();
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          setSelectedImage(reader.result);
+      setIsUploading(true);
+      try {
+        const res = await api.uploadMedia(file);
+        if (res?.url) {
+          setSelectedImage(api.getMediaUrl(res.url));
           setCustomUrl('');
         }
-      };
-      reader.readAsDataURL(file);
+      } catch (_) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            setSelectedImage(reader.result);
+            setCustomUrl('');
+          }
+        };
+        reader.readAsDataURL(file);
+      } finally {
+        setIsUploading(false);
+      }
     }
   };
 
+  const activeDisplayImage = customUrl.trim() || selectedImage;
+
   return (
     <div 
-      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div 
-        className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+        className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h3 className="font-bold text-gray-900 text-lg">{language === 'km' ? 'បង្កើតរឿងរ៉ាវ' : 'Create a Story'}</h3>
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 sm:py-4 border-b border-gray-100">
+          <h3 className="font-bold text-gray-900 text-base sm:text-lg">{t('modals.createStoryTitle')}</h3>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 p-1.5 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
@@ -75,88 +90,101 @@ export const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleCreate} className="p-5 space-y-4">
-          {/* Preview Container */}
-          <div className="flex justify-center">
-            <div 
-              className="w-44 h-72 rounded-2xl overflow-hidden shadow-md relative bg-gray-900 bg-cover bg-center border-2 border-blue-500 flex flex-col justify-between p-3"
-              style={{ backgroundImage: `url(${customUrl.trim() || selectedImage})` }}
-            >
-              <div className="flex items-center gap-2">
+        <form onSubmit={handleCreate} className="p-3.5 sm:p-5 overflow-y-auto space-y-3.5 sm:space-y-4 flex-1 flex flex-col justify-between">
+          <div className="space-y-3.5 sm:space-y-4">
+            {/* Story Card Live Preview */}
+            <div className="relative h-56 sm:h-64 rounded-xl overflow-hidden shadow-inner border border-gray-200 flex flex-col justify-between p-3 sm:p-3.5 group bg-gray-900">
+              <img
+                src={activeDisplayImage}
+                alt="Story preview"
+                className="absolute inset-0 w-full h-full object-cover opacity-90 transition-transform duration-300 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/75 pointer-events-none" />
+
+              {/* Creator info badge */}
+              <div className="relative z-10 flex items-center gap-2">
                 <img
-                  src={currentUser.avatar}
+                  src={api.getMediaUrl(currentUser.avatar)}
                   alt={currentUser.name}
-                  className="w-7 h-7 rounded-full border-2 border-white object-cover"
+                  className="w-9 h-9 rounded-full border-2 border-white object-cover shadow-sm"
                 />
-                <span className="text-white text-xs font-semibold drop-shadow-sm">{currentUser.name}</span>
+                <span className="text-white text-xs font-bold drop-shadow-md">{currentUser.name}</span>
               </div>
-              {caption && (
-                <div className="bg-black/60 backdrop-blur-xs text-white text-xs p-2 rounded-xl text-center">
-                  {caption}
-                </div>
-              )}
+
+              {/* Caption preview */}
+              <div className="relative z-10">
+                {caption && (
+                  <p className="text-white text-xs bg-black/50 p-2.5 rounded-lg backdrop-blur-xs font-medium line-clamp-2">
+                    {caption}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Caption Input */}
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1.5">{t('createStory.addCaption')}</label>
+              <input
+                type="text"
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+                placeholder={t('createStory.captionPlaceholder')}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs text-gray-800 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              />
+            </div>
+
+            {/* Photo background choice */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-gray-700 block">{t('createStory.chooseBackground')}</label>
+              <div className="grid grid-cols-4 gap-2">
+                {SAMPLE_STORY_BACKGROUNDS.map((bg, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      setSelectedImage(bg);
+                      setCustomUrl('');
+                    }}
+                    className={`h-16 rounded-lg overflow-hidden border-2 cursor-pointer transition-all ${
+                      selectedImage === bg && !customUrl
+                        ? 'border-blue-600 ring-2 ring-blue-600/30'
+                        : 'border-transparent opacity-80 hover:opacity-100'
+                    }`}
+                  >
+                    <img src={bg} alt="Thumbnail" className="w-full h-full object-cover" />
+                  </div>
+                ))}
+              </div>
+
+              {/* Custom Image Upload or URL */}
+              <div className="pt-2 flex items-center gap-2">
+                <label className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shrink-0">
+                  {isUploading ? (
+                    <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin" />
+                  ) : (
+                    <Upload className="w-3.5 h-3.5 text-gray-600" />
+                  )}
+                  <span>{isUploading ? 'Uploading...' : t('createStory.uploadImage')}</span>
+                  <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                </label>
+                <input
+                  type="text"
+                  value={customUrl}
+                  onChange={(e) => setCustomUrl(e.target.value)}
+                  placeholder={t('createStory.orImageURL')}
+                  className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-800 outline-none focus:bg-white focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Preset Background Selection */}
-          <div>
-            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">
-              {language === 'km' ? 'ជ្រើសរើសរូបភាពផ្ទៃខាងក្រោយ' : 'Select Background Image'}
-            </label>
-            <div className="grid grid-cols-4 gap-2">
-              {SAMPLE_STORY_BACKGROUNDS.map((bg, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => {
-                    setSelectedImage(bg);
-                    setCustomUrl('');
-                  }}
-                  className={`h-16 rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${
-                    selectedImage === bg && !customUrl ? 'border-blue-600 scale-105' : 'border-transparent hover:opacity-80'
-                  }`}
-                >
-                  <img src={bg} alt="preset" className="w-full h-full object-cover" />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Upload or Custom URL */}
-          <div className="flex gap-2">
-            <label className="flex-1 flex items-center justify-center gap-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 py-2.5 px-3 rounded-xl text-xs font-semibold text-gray-700 cursor-pointer transition-colors">
-              <Upload className="w-4 h-4 text-blue-600" />
-              <span>{language === 'km' ? 'ផ្ទុកឡើងពីឧបករណ៍របស់អ្នក' : 'Upload from device'}</span>
-              <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-            </label>
-          </div>
-
-          {/* Caption Input */}
-          <div>
-            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">
-              {language === 'km' ? 'បន្ថែមចំណងជើង' : 'Add Caption'}
-            </label>
-            <input
-              type="text"
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              placeholder={language === 'km' ? 'តើមានអ្វីកើតឡើងថ្ងៃនេះ?' : "What's happening today?"}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-            />
-          </div>
-
-          <div className="pt-2 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
-            >
-              {language === 'km' ? 'បោះបង់' : 'Cancel'}
-            </button>
+          {/* Submit */}
+          <div className="pt-3 border-t border-gray-100">
             <button
               type="submit"
-              className="px-5 py-2 text-sm font-semibold text-white bg-[#2563eb] hover:bg-[#1d4ed8] rounded-xl transition-colors shadow-xs cursor-pointer"
+              disabled={isUploading}
+              className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] disabled:bg-gray-200 text-white font-bold py-2.5 rounded-xl text-sm transition-colors shadow-xs cursor-pointer"
             >
-              {language === 'km' ? 'ចែករំលែកទៅកាន់រឿងរ៉ាវ' : 'Share to Story'}
+              {isUploading ? 'Uploading...' : t('createStory.shareToStory')}
             </button>
           </div>
         </form>

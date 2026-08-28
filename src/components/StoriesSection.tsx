@@ -3,6 +3,8 @@ import { Plus, ChevronRight, ChevronLeft } from 'lucide-react';
 import { Story, User } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 
+import { api } from '../services/api';
+
 interface StoriesSectionProps {
   currentUser: User;
   stories: Story[];
@@ -53,7 +55,7 @@ export const StoriesSection: React.FC<StoriesSectionProps> = ({
             className="w-28 h-44 rounded-xl shrink-0 relative overflow-hidden group cursor-pointer border border-gray-200 shadow-xs bg-white select-none hover:shadow-md transition-all"
           >
             <img
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuCwCAh-KcmahwjZdmnH7BtYuVAuAYlQNrSrlwXL_an-dQddhKOlYNrQ5MHS66VVhTGaeanX1tjPtflp-Xe-58FhhUThv7CSZWtWbV-qnNoZOM7Vxi9mQE7EBGj3DURUIBwXEWpSenK-kGQ28wXDJPId9x6hmgWVeLVNBLBvujSAmFVuqZw6329wpiE8NOw4cT_XcEw29LKD2QDuQAT5VFdmfDXfbxTbLv7tIgDMWSVwV_dumM145QeL"
+              src={api.getMediaUrl(currentUser.avatar)}
               alt="Your Story"
               className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-300"
             />
@@ -71,7 +73,7 @@ export const StoriesSection: React.FC<StoriesSectionProps> = ({
               key={story.id}
               onClick={() => onViewStory(story, index)}
               className="w-28 h-44 rounded-xl shrink-0 story-card-bg cursor-pointer group shadow-xs overflow-hidden select-none relative hover:shadow-md transition-all"
-              style={{ backgroundImage: `url(${story.storyImage})` }}
+              style={{ backgroundImage: `url(${api.getMediaUrl(story.storyImage)})` }}
             >
               {/* Overlay */}
               <div className="absolute inset-0 story-overlay rounded-xl group-hover:bg-black/30 transition-colors" />
@@ -79,7 +81,7 @@ export const StoriesSection: React.FC<StoriesSectionProps> = ({
               {/* Avatar on Top Left */}
               <div className="absolute top-2 left-2 w-8 h-8 rounded-full border-2 border-[#3b82f6] overflow-hidden shadow-xs ring-1 ring-white/50">
                 <img
-                  src={story.userAvatar}
+                  src={api.getMediaUrl(story.userAvatar)}
                   alt={story.userName}
                   className="w-full h-full object-cover"
                 />

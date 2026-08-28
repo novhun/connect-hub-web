@@ -1,0 +1,19 @@
+{
+  "title": "Friends",
+  "subtitle": "Manage your connections, requests, and discover new people.",
+  "allFriends": "All Friends",
+  "requests": "Requests",
+  "suggestions": "Suggestions",
+  "noFriends": "No friends yet. Check Suggestions to connect with people!",
+  "incomingRequests": "Friend Requests",
+  "noIncomingRequests": "No incoming friend requests.",
+  "outgoingRequests": "Sent Requests",
+  "noOutgoingRequests": "You haven't sent any friend requests.",
+  "noSuggestions": "No suggestions right now.",
+  "confirm": "Confirm",
+  "delete": "Delete",
+  "requestSent": "Request sent",
+  "cancelRequest": "Cancel Request",
+  "addFriend": "Add Friend",
+  "unfriend": "Unfriend"
+}

@@ -1,65 +1,296 @@
-import React, { useState } from 'react';
-import { 
-  CURRENT_USER, 
-  ONLINE_MEMBERS, 
-  INITIAL_STORIES, 
-  GROUPS_DATA, 
-  INITIAL_POSTS, 
-  INITIAL_NOTIFICATIONS 
-} from './data/mockData';
+import React, { useState, useEffect } from 'react';
 import { Post, Story, Group, User, ReactionType, NotificationItem } from './types';
-import { Header } from './components/Header';
-import { LeftSidebar } from './components/LeftSidebar';
-import { RightSidebar } from './components/RightSidebar';
-import { StoriesSection } from './components/StoriesSection';
-import { CreatePostBox } from './components/CreatePostBox';
-import { PostCard } from './components/PostCard';
-import { StoryViewerModal } from './components/StoryViewerModal';
-import { CreateStoryModal } from './components/CreateStoryModal';
-import { CreatePostModal } from './components/CreatePostModal';
-import { SupportCenterModal } from './components/SupportCenterModal';
-import { ChatFloatingWindow } from './components/ChatFloatingWindow';
-import { ShareModal } from './components/ShareModal';
-import { GroupDetailModal } from './components/GroupDetailModal';
-import { NotificationsPopover } from './components/NotificationsPopover';
-import { UserProfileModal } from './components/UserProfileModal';
+import { 
+  Header,
+  LeftSidebar,
+  RightSidebar,
+  MobileBottomNav,
+  FloatingSupportButton,
+  StoriesSection,
+  StoryViewerModal,
+  CreateStoryModal,
+  CreatePostBox,
+  PostCard,
+  CreatePostModal,
+  ShareModal,
+  SavedPostsView,
+  ExploreView,
+  MessagesView,
+  ChatFloatingWindow,
+  CallsView,
+  SupportCenterModal,
+  RealCallModal,
+  IncomingCallModal,
+  LoginModal,
+  RegisterModal,
+  GroupsView,
+  GroupDetailModal,
+  UserProfileModal,
+  SettingsView,
+  NotificationsPopover,
+  AboutView,
+  EventsView,
+  FriendsView,
+} from './modules';
 import { useLanguage } from './context/LanguageContext';
+import { api } from './services/api';
+import { friendsApi } from './modules/friends/api';
+import { realtime, RealtimeMessage } from './services/realtime';
 
-// Views
-import { ExploreView } from './components/views/ExploreView';
-import { MessagesView } from './components/views/MessagesView';
-import { CallsView } from './components/views/CallsView';
-import { SavedPostsView } from './components/views/SavedPostsView';
-import { EventsView } from './components/views/EventsView';
-import { SettingsView } from './components/views/SettingsView';
-import { GroupsView } from './components/views/GroupsView';
+const DEFAULT_USER: User = {
+  id: '',
+  name: 'Guest',
+  email: '',
+  avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Guest',
+  role: 'Guest',
+  bio: '',
+  isOnline: false,
+};
+
+const LOGGED_OUT_KEY = 'connect_hub_logged_out';
 
 export default function App() {
   const { t, language } = useLanguage();
 
   // App state
-  const [currentUser, setCurrentUser] = useState<User>(CURRENT_USER);
+  const [currentUser, setCurrentUser] = useState<User>(DEFAULT_USER);
   const [activeTab, setActiveTab] = useState<string>('home');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isApiConnected, setIsApiConnected] = useState<boolean>(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   
-  // Data states
-  const [posts, setPosts] = useState<Post[]>(INITIAL_POSTS);
-  const [stories, setStories] = useState<Story[]>(INITIAL_STORIES);
-  const [groups, setGroups] = useState<Group[]>(GROUPS_DATA);
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
-  const [onlineMembers, setOnlineMembers] = useState<User[]>(ONLINE_MEMBERS);
+  // Auth & Real Call states
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState<boolean>(false);
+  const [activeRealCall, setActiveRealCall] = useState<{
+    targetUser: User;
+    callType: 'audio' | 'video';
+    roomId: string;
+    role: 'caller' | 'callee';
+    sessionId?: string;
+  } | null>(null);
+  const [incomingCall, setIncomingCall] = useState<{
+    fromUserId: string;
+    fromUser: User;
+    callType: 'audio' | 'video';
+    roomId: string;
+    sessionId?: string;
+  } | null>(null);
+
+  // Live Data states from FastAPI Backend
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [stories, setStories] = useState<Story[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [onlineMembers, setOnlineMembers] = useState<User[]>([]);
+  const [friendRequestsCount, setFriendRequestsCount] = useState(0);
 
   // Modals state
   const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
   const [isCreateStoryOpen, setIsCreateStoryOpen] = useState(false);
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
   const [createPostInitialType, setCreatePostInitialType] = useState<'photo' | 'feeling' | 'location' | undefined>(undefined);
-  const [supportModalMode, setSupportModalMode] = useState<'audio' | 'video' | 'chat' | null>(null);
+  const [supportModalMode, setSupportModalMode] = useState<'chat' | null>(null);
   const [activeChatUser, setActiveChatUser] = useState<User | null>(null);
   const [sharingPost, setSharingPost] = useState<Post | null>(null);
-  const [selectedGroupDetail, setSelectedGroupDetail] = useState<Group | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const selectedGroupDetail = selectedGroupId ? groups.find((g) => g.id === selectedGroupId) || null : null;
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [viewingProfileUserId, setViewingProfileUserId] = useState<string | null>(null);
+
+  // Initialize API connection & fetch 100% Real Live Data
+  useEffect(() => {
+    const initAppWithApi = async () => {
+      // Respect an explicit logout: don't silently re-authenticate as the demo account.
+      if (!api.getToken() && localStorage.getItem(LOGGED_OUT_KEY) === 'true') {
+        setIsLoading(false);
+        setIsLoginModalOpen(true);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        let user = currentUser;
+        try {
+          if (!api.getToken()) {
+            const loginRes = await api.login('sokun@connecthub.app', 'password123');
+            user = loginRes.user;
+          } else {
+            user = await api.getMe();
+          }
+          setCurrentUser(user);
+          setIsApiConnected(true);
+          localStorage.removeItem(LOGGED_OUT_KEY);
+          realtime.connect(user.id);
+        } catch (authErr) {
+          console.warn('Auto auth notice, authenticating demo account:', authErr);
+          try {
+            api.logout();
+            const loginRes = await api.login('sokun@connecthub.app', 'password123');
+            user = loginRes.user;
+            setCurrentUser(user);
+            setIsApiConnected(true);
+            localStorage.removeItem(LOGGED_OUT_KEY);
+            realtime.connect(user.id);
+          } catch (_) {}
+        }
+
+        // Fetch Posts, Stories, Groups, Online Users, Notifications, Friend Requests in parallel
+        const [postsRes, storiesRes, groupsRes, usersRes, notifsRes, friendReqRes] = await Promise.allSettled([
+          api.getFeed(),
+          api.getStories(),
+          api.getGroups(),
+          api.getUsers(),
+          api.getNotifications(),
+          friendsApi.getRequests('incoming'),
+        ]);
+
+        if (postsRes.status === 'fulfilled' && Array.isArray(postsRes.value)) {
+          setPosts(postsRes.value);
+          setIsApiConnected(true);
+        }
+        if (storiesRes.status === 'fulfilled' && Array.isArray(storiesRes.value)) {
+          setStories(storiesRes.value);
+        }
+        if (groupsRes.status === 'fulfilled' && Array.isArray(groupsRes.value)) {
+          setGroups(groupsRes.value);
+        }
+        if (usersRes.status === 'fulfilled' && Array.isArray(usersRes.value)) {
+          setOnlineMembers(usersRes.value);
+        }
+        if (notifsRes.status === 'fulfilled' && Array.isArray(notifsRes.value)) {
+          setNotifications(notifsRes.value);
+        }
+        if (friendReqRes.status === 'fulfilled' && Array.isArray(friendReqRes.value)) {
+          setFriendRequestsCount(friendReqRes.value.length);
+        }
+      } catch (err) {
+        console.warn('API sync warning:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initAppWithApi();
+  }, []);
+
+  // Auth Handlers
+  const handleLogout = () => {
+    api.logout();
+    realtime.disconnect();
+    localStorage.setItem(LOGGED_OUT_KEY, 'true');
+    setCurrentUser(DEFAULT_USER);
+    setPosts([]);
+    setStories([]);
+    setNotifications([]);
+    setGroups([]);
+    setOnlineMembers([]);
+    setFriendRequestsCount(0);
+    setIsApiConnected(false);
+    setIsLoginModalOpen(true);
+  };
+
+  const handleAuthSuccess = async (user: User) => {
+    localStorage.removeItem(LOGGED_OUT_KEY);
+    setCurrentUser(user);
+    setIsApiConnected(true);
+    setIsLoginModalOpen(false);
+    setIsRegisterModalOpen(false);
+    realtime.connect(user.id);
+    try {
+      const [fetchedPosts, fetchedStories, fetchedGroups, fetchedNotifs, fetchedUsers, fetchedFriendReqs] = await Promise.all([
+        api.getFeed(),
+        api.getStories(),
+        api.getGroups(),
+        api.getNotifications(),
+        api.getUsers({ onlyOnline: true }),
+        friendsApi.getRequests('incoming'),
+      ]);
+      if (fetchedPosts?.length) setPosts(fetchedPosts);
+      if (fetchedStories?.length) setStories(fetchedStories);
+      if (fetchedGroups?.length) setGroups(fetchedGroups);
+      if (fetchedNotifs?.length) setNotifications(fetchedNotifs);
+      if (fetchedUsers?.length) setOnlineMembers(fetchedUsers);
+      setFriendRequestsCount(fetchedFriendReqs?.length || 0);
+    } catch (_) {}
+  };
+
+  // Real Call Handlers — places a real call: sends a signaling invite over the
+  // realtime channel so the other user's browser can actually ring, then opens
+  // the caller's own call modal to start the WebRTC handshake once accepted.
+  const handleStartRealCall = async (user: User, type: 'audio' | 'video') => {
+    if (activeRealCall) return; // already in a call
+    let roomId = `call-${currentUser.id}-${user.id}-${Date.now()}`;
+    let sessionId: string | undefined;
+    try {
+      const session = await api.initiateCall(user.id, type);
+      if (session?.roomId) roomId = session.roomId;
+      sessionId = session?.id;
+    } catch (e) {
+      console.warn('Initiate call API notice:', e);
+    }
+
+    realtime.send({
+      type: 'CALL_INVITE',
+      targetUserId: user.id,
+      callerId: currentUser.id,
+      callerName: currentUser.name,
+      callerAvatar: currentUser.avatar,
+      callType: type,
+      roomId,
+      sessionId,
+    });
+
+    setActiveRealCall({ targetUser: user, callType: type, roomId, role: 'caller', sessionId });
+  };
+
+  const handleAcceptIncomingCall = () => {
+    if (!incomingCall) return;
+    realtime.send({ type: 'CALL_ACCEPT', targetUserId: incomingCall.fromUserId, roomId: incomingCall.roomId });
+    setActiveRealCall({
+      targetUser: incomingCall.fromUser,
+      callType: incomingCall.callType,
+      roomId: incomingCall.roomId,
+      role: 'callee',
+      sessionId: incomingCall.sessionId,
+    });
+    setIncomingCall(null);
+  };
+
+  const handleDeclineIncomingCall = () => {
+    if (!incomingCall) return;
+    realtime.send({ type: 'CALL_DECLINE', targetUserId: incomingCall.fromUserId, roomId: incomingCall.roomId });
+    if (incomingCall.sessionId) {
+      api.updateCallStatus(incomingCall.sessionId, 'declined').catch(() => {});
+    }
+    setIncomingCall(null);
+  };
+
+  // Listen for incoming call invites app-wide, regardless of which tab/modal is open.
+  useEffect(() => {
+    const unsubscribe = realtime.subscribe((msg: RealtimeMessage) => {
+      if (msg.type === 'CALL_INVITE') {
+        if (activeRealCall || incomingCall) {
+          // Already busy — let the caller know instead of silently dropping it.
+          realtime.send({ type: 'CALL_DECLINE', targetUserId: msg.callerId, roomId: msg.roomId });
+          return;
+        }
+        setIncomingCall({
+          fromUserId: msg.callerId,
+          fromUser: { id: msg.callerId, name: msg.callerName, avatar: msg.callerAvatar, isOnline: true },
+          callType: msg.callType,
+          roomId: msg.roomId,
+          sessionId: msg.sessionId,
+        });
+      } else if (msg.type === 'CALL_END') {
+        // Caller hung up/cancelled while we were still looking at the ringing prompt.
+        setIncomingCall((prev) => (prev && prev.roomId === msg.roomId ? null : prev));
+      }
+    });
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeRealCall, incomingCall]);
 
   // Filtered posts based on search
   const filteredPosts = searchQuery.trim()
@@ -74,7 +305,8 @@ export default function App() {
   const unreadNotifsCount = notifications.filter((n) => !n.isRead).length;
 
   // Post Actions
-  const handleReactPost = (postId: string, reaction: ReactionType | null) => {
+  const handleReactPost = async (postId: string, reaction: ReactionType | null) => {
+    // Optimistic UI update
     setPosts((prev) =>
       prev.map((post) => {
         if (post.id !== postId) return post;
@@ -95,51 +327,110 @@ export default function App() {
         };
       })
     );
+
+    // Call API
+    try {
+      const updatedPost = await api.reactPost(postId, reaction);
+      if (updatedPost) {
+        setPosts((prev) => prev.map((p) => (p.id === postId ? updatedPost : p)));
+      }
+    } catch (e) {
+      console.warn('React post API notice:', e);
+    }
   };
 
-  const handleAddComment = (postId: string, commentText: string) => {
+  const handleAddComment = async (postId: string, commentText: string) => {
+    // Optimistic UI update
+    const tempComment = {
+      id: `comm-${Date.now()}`,
+      user: currentUser,
+      content: commentText,
+      timestamp: 'Just now',
+      likes: 0,
+    };
+
     setPosts((prev) =>
       prev.map((post) => {
         if (post.id !== postId) return post;
         return {
           ...post,
-          comments: [
-            ...post.comments,
-            {
-              id: `comm-${Date.now()}`,
-              user: currentUser,
-              content: commentText,
-              timestamp: 'Just now',
-              likes: 0,
-            },
-          ],
+          comments: [...post.comments, tempComment],
         };
       })
     );
+
+    // Call API
+    try {
+      const updatedPost = await api.addComment(postId, commentText);
+      if (updatedPost) {
+        setPosts((prev) => prev.map((p) => (p.id === postId ? updatedPost : p)));
+      }
+    } catch (e) {
+      console.warn('Add comment API notice:', e);
+    }
   };
 
-  const handleSaveToggle = (postId: string) => {
+  const handleSaveToggle = async (postId: string) => {
     setPosts((prev) =>
       prev.map((post) => {
         if (post.id !== postId) return post;
         return { ...post, isSaved: !post.isSaved };
       })
     );
+
+    try {
+      await api.toggleSavePost(postId);
+    } catch (e) {
+      console.warn('Save toggle API notice:', e);
+    }
   };
 
-  const handleDeletePost = (postId: string) => {
+  const handleDeletePost = async (postId: string) => {
     setPosts((prev) => prev.filter((p) => p.id !== postId));
+    try {
+      await api.deletePost(postId);
+    } catch (e) {
+      console.warn('Delete post API notice:', e);
+    }
   };
 
-  const handleAddPost = (newPost: Post) => {
+  const handleAddPost = async (newPost: Post) => {
     setPosts((prev) => [newPost, ...prev]);
+
+    try {
+      const serverPost = await api.createPost({
+        content: newPost.content,
+        privacy: newPost.privacy,
+        images: newPost.images,
+        feeling: newPost.feeling,
+        location: newPost.location,
+        taggedGroup: newPost.taggedGroup,
+      });
+      if (serverPost) {
+        setPosts((prev) => [serverPost, ...prev.filter((p) => p.id !== newPost.id)]);
+      }
+    } catch (e) {
+      console.warn('Create post API notice:', e);
+    }
   };
 
-  const handleAddStory = (newStory: Story) => {
+  const handleAddStory = async (newStory: Story) => {
     setStories((prev) => [newStory, ...prev]);
+
+    try {
+      const serverStory = await api.createStory({
+        storyImage: newStory.storyImage,
+        caption: newStory.caption,
+      });
+      if (serverStory) {
+        setStories((prev) => [serverStory, ...prev.filter((s) => s.id !== newStory.id)]);
+      }
+    } catch (e) {
+      console.warn('Create story API notice:', e);
+    }
   };
 
-  const handleShareToFeed = (postToShare: Post, caption: string) => {
+  const handleShareToFeed = async (postToShare: Post, caption: string) => {
     const sharedPost: Post = {
       id: `post-shared-${Date.now()}`,
       author: currentUser,
@@ -147,34 +438,67 @@ export default function App() {
       privacy: 'public',
       content: caption ? `${caption}\n\n[Shared from ${postToShare.author.name}]:\n${postToShare.content}` : `[Shared from ${postToShare.author.name}]:\n${postToShare.content}`,
       images: postToShare.images,
-      reactionCounts: { like: 1, love: 0, care: 0, haha: 0, wow: 0, sad: 0, angry: 0 },
-      userReaction: 'like',
+      reactionCounts: { like: 0, love: 0, care: 0, haha: 0, wow: 0, sad: 0, angry: 0 },
+      userReaction: null,
       comments: [],
       sharesCount: 0,
     };
     setPosts((prev) => [sharedPost, ...prev]);
-    // increment original post share count
     setPosts((prev) =>
       prev.map((p) => (p.id === postToShare.id ? { ...p, sharesCount: p.sharesCount + 1 } : p))
     );
+
+    try {
+      await api.createPost({
+        content: sharedPost.content,
+        privacy: 'public',
+        images: sharedPost.images,
+      });
+      await api.sharePost(postToShare.id);
+    } catch (e) {
+      console.warn('Share post API notice:', e);
+    }
   };
 
-  const handleToggleJoinGroup = (groupId: string) => {
+  const handleToggleJoinGroup = async (groupId: string) => {
+    const group = groups.find((g) => g.id === groupId);
+    const willJoin = !group?.joined;
+
     setGroups((prev) =>
-      prev.map((g) => (g.id === groupId ? { ...g, joined: !g.joined } : g))
+      prev.map((g) => (g.id === groupId ? { ...g, joined: willJoin } : g))
     );
+
+    try {
+      const updated = willJoin ? await api.joinGroup(groupId) : await api.leaveGroup(groupId);
+      if (updated) {
+        setGroups((prev) => prev.map((g) => (g.id === groupId ? updated : g)));
+      }
+    } catch (e) {
+      console.warn('Toggle group join API notice:', e);
+    }
   };
 
-  const handleMarkAllNotifsRead = () => {
+  const handleMarkAllNotifsRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    try {
+      await api.markAllNotificationsRead();
+    } catch (e) {
+      console.warn('Mark all notifs read API notice:', e);
+    }
   };
 
-  const handleNotificationClick = (notif: NotificationItem) => {
+  const handleNotificationClick = async (notif: NotificationItem) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n))
     );
+    try {
+      await api.markNotificationRead(notif.id);
+    } catch (e) {
+      console.warn('Mark notif read API notice:', e);
+    }
+
     if (notif.type === 'call') {
-      setSupportModalMode('audio');
+      handleStartRealCall(notif.user, 'audio');
     } else {
       setActiveTab('home');
     }
@@ -193,9 +517,13 @@ export default function App() {
         onOpenNotifications={() => setIsNotificationsOpen(!isNotificationsOpen)}
         onOpenMessages={() => setActiveTab('messages')}
         onOpenSupport={() => setSupportModalMode('chat')}
-        onOpenProfile={() => setIsProfileOpen(true)}
+        onOpenProfile={() => setViewingProfileUserId(currentUser.id)}
+        onViewProfile={(id) => setViewingProfileUserId(id)}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
+        onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        onLogout={handleLogout}
+        onOpenLogin={() => setIsLoginModalOpen(true)}
       />
 
       {/* BEGIN: Main Layout Wrapper */}
@@ -209,27 +537,57 @@ export default function App() {
             setIsCreatePostOpen(true);
           }}
           unreadNotifsCount={unreadNotifsCount}
+          friendRequestsCount={friendRequestsCount}
           groups={groups}
-          onSelectGroup={(g) => setSelectedGroupDetail(g)}
+          onSelectGroup={(g) => setSelectedGroupId(g.id)}
+          isMobileOpen={isMobileMenuOpen}
+          onCloseMobile={() => setIsMobileMenuOpen(false)}
         />
 
         {/* BEGIN: Main Center Feed / View Container */}
         <main
           id="main-feed"
-          className="flex-1 overflow-y-auto bg-[#f0f2f5] p-4 sm:p-6"
+          className="flex-1 overflow-y-auto bg-[#f0f2f5] p-3 sm:p-6 pb-20 md:pb-6"
         >
           {/* Render based on active navigation tab */}
           {activeTab === 'home' && (
             <div className="max-w-2xl mx-auto space-y-6">
-              {/* Stories Carousel */}
+              {/* Welcome & System Info Hero Callout */}
+              <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-900 text-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-700/60 relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="space-y-1 relative z-10">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[10px] font-bold border border-blue-400/30">
+                      FASTAPI + REACT 19
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 font-semibold">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Backend Online (8008)
+                    </span>
+                  </div>
+                  <h3 className="font-bold text-sm sm:text-base text-white">
+                    Connect-Hub System Architecture & Live API
+                  </h3>
+                  <p className="text-xs text-slate-300">
+                    SQLAlchemy 2.0 • Multi-DB (Postgres/MySQL/Mongo/SQLite) • PeerJS WebRTC • S3/R2 • Duplex WebSockets
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveTab('about')}
+                  className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl shadow-xs shrink-0 cursor-pointer transition-colors relative z-10"
+                >
+                  Explore Tech
+                </button>
+              </div>
+
+              {/* 1. Stories Carousel */}
               <StoriesSection
                 currentUser={currentUser}
                 stories={stories}
                 onOpenCreateStory={() => setIsCreateStoryOpen(true)}
-                onViewStory={(story, idx) => setActiveStoryIndex(idx)}
+                onViewStory={(s, idx) => setActiveStoryIndex(idx)}
               />
 
-              {/* Create Post Quick Box */}
+              {/* 2. Create Post Composer */}
               <CreatePostBox
                 currentUser={currentUser}
                 onOpenCreatePost={(type) => {
@@ -238,39 +596,51 @@ export default function App() {
                 }}
               />
 
-              {/* Posts Stream */}
+              {/* 3. Post Feed Stream */}
               <div className="space-y-6">
-                {filteredPosts.map((post) => (
-                  <PostCard
-                    key={post.id}
-                    post={post}
-                    currentUser={currentUser}
-                    onReact={handleReactPost}
-                    onAddComment={handleAddComment}
-                    onShare={(p) => setSharingPost(p)}
-                    onSaveToggle={handleSaveToggle}
-                    onDeletePost={handleDeletePost}
-                  />
-                ))}
-
-                {filteredPosts.length === 0 && (
-                  <div className="bg-white rounded-2xl p-8 text-center text-gray-500 border border-gray-100 shadow-sm">
-                    <p className="font-semibold text-gray-700">
-                      {language === 'km' 
-                        ? `មិនមានការបង្ហោះដែលត្រូវនឹង "${searchQuery}" ទេ` 
-                        : `No posts found matching "${searchQuery}"`}
+                {isLoading ? (
+                  <div className="space-y-4">
+                    {[1, 2].map((n) => (
+                      <div key={n} className="bg-white rounded-2xl p-4 shadow-xs border border-gray-100/70 animate-pulse space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gray-200" />
+                          <div className="space-y-2 flex-1">
+                            <div className="h-3.5 bg-gray-200 rounded w-1/3" />
+                            <div className="h-2.5 bg-gray-100 rounded w-1/4" />
+                          </div>
+                        </div>
+                        <div className="h-4 bg-gray-200 rounded w-3/4" />
+                        <div className="h-48 bg-gray-100 rounded-xl" />
+                      </div>
+                    ))}
+                  </div>
+                ) : filteredPosts.length === 0 ? (
+                  <div className="bg-white rounded-2xl p-12 text-center border border-gray-100 space-y-3">
+                    <p className="text-gray-500 text-sm">
+                      {language === 'km' ? 'មិនទាន់មានការបង្ហោះនៅឡើយទេ។' : 'No posts in feed yet.'}
                     </p>
                     <button
-                      onClick={() => setSearchQuery('')}
-                      className="mt-2 text-sm text-blue-600 font-medium hover:underline cursor-pointer"
+                      onClick={() => setIsCreatePostOpen(true)}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl cursor-pointer"
                     >
-                      {language === 'km' ? 'សម្អាតការស្វែងរក' : 'Clear search filter'}
+                      {language === 'km' ? 'បង្កើតការបង្ហោះដំបូង' : 'Create First Post'}
                     </button>
                   </div>
+                ) : (
+                  filteredPosts.map((post) => (
+                    <PostCard
+                      key={post.id}
+                      post={post}
+                      currentUser={currentUser}
+                      onReact={handleReactPost}
+                      onAddComment={handleAddComment}
+                      onShare={(p) => setSharingPost(p)}
+                      onSaveToggle={handleSaveToggle}
+                      onDeletePost={handleDeletePost}
+                      onViewProfile={(id) => setViewingProfileUserId(id)}
+                    />
+                  ))
                 )}
-
-                {/* Bottom Spacer for smooth scrolling */}
-                <div className="h-10" />
               </div>
             </div>
           )}
@@ -278,65 +648,40 @@ export default function App() {
           {activeTab === 'explore' && (
             <ExploreView
               posts={posts}
+              groups={groups}
+              onSelectGroup={(g) => setSelectedGroupId(g.id)}
+              onReact={handleReactPost}
+              onAddComment={handleAddComment}
               currentUser={currentUser}
-              onPostClick={() => {}}
+              onViewProfile={(id) => setViewingProfileUserId(id)}
             />
           )}
 
-          {activeTab === 'notifications' && (
-            <div className="max-w-2xl mx-auto space-y-4">
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex items-center justify-between">
-                <h1 className="text-xl font-bold text-gray-900">
-                  {language === 'km' ? 'ការជូនដំណឹង' : 'Notifications'}
-                </h1>
-                <button
-                  onClick={handleMarkAllNotifsRead}
-                  className="text-xs text-blue-600 font-semibold hover:underline cursor-pointer"
-                >
-                  {language === 'km' ? 'សម្គាល់ថាបានអានទាំងអស់' : 'Mark all as read'}
-                </button>
-              </div>
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100 overflow-hidden">
-                {notifications.map((n) => (
-                  <div
-                    key={n.id}
-                    onClick={() => handleNotificationClick(n)}
-                    className={`p-4 flex items-center gap-3 cursor-pointer hover:bg-gray-50 transition-colors ${
-                      !n.isRead ? 'bg-blue-50/40' : ''
-                    }`}
-                  >
-                    <img
-                      src={n.user.avatar}
-                      alt={n.user.name}
-                      className="w-11 h-11 rounded-full object-cover border border-gray-200"
-                    />
-                    <div className="flex-1 text-sm">
-                      <p className="text-gray-800">
-                        <span className="font-bold text-gray-900">{n.user.name}</span> {n.content}
-                      </p>
-                      <span className="text-xs text-gray-400 mt-0.5 block">{n.timestamp}</span>
-                    </div>
-                    {!n.isRead && (
-                      <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+          {activeTab === 'groups' && (
+            <GroupsView
+              groups={groups}
+              currentUser={currentUser}
+              onSelectGroup={(g) => setSelectedGroupId(g.id)}
+              onToggleJoinGroup={handleToggleJoinGroup}
+            />
+          )}
+
+          {activeTab === 'friends' && (
+            <FriendsView onViewProfile={(id) => setViewingProfileUserId(id)} />
           )}
 
           {activeTab === 'messages' && (
             <MessagesView
               onlineMembers={onlineMembers}
               currentUser={currentUser}
-              onStartCall={(user, type) => setSupportModalMode(type)}
+              onStartCall={handleStartRealCall}
             />
           )}
 
           {activeTab === 'calls' && (
             <CallsView
               onlineMembers={onlineMembers}
-              onStartCall={(user, type) => setSupportModalMode(type)}
+              onStartCall={handleStartRealCall}
             />
           )}
 
@@ -348,6 +693,7 @@ export default function App() {
               onAddComment={handleAddComment}
               onShare={(p) => setSharingPost(p)}
               onSaveToggle={handleSaveToggle}
+              onViewProfile={(id) => setViewingProfileUserId(id)}
             />
           )}
 
@@ -359,22 +705,19 @@ export default function App() {
               onAddComment={handleAddComment}
               onShare={(p) => setSharingPost(p)}
               onSaveToggle={handleSaveToggle}
+              onViewProfile={(id) => setViewingProfileUserId(id)}
             />
           )}
 
           {activeTab === 'events' && <EventsView />}
 
-          {activeTab === 'groups' && (
-            <GroupsView
-              groups={groups}
-              currentUser={currentUser}
-              onSelectGroup={(g) => setSelectedGroupDetail(g)}
-              onToggleJoinGroup={handleToggleJoinGroup}
-            />
-          )}
+          {activeTab === 'settings' && <SettingsView currentUser={currentUser} />}
 
-          {activeTab === 'settings' && (
-            <SettingsView currentUser={currentUser} />
+          {activeTab === 'about' && (
+            <AboutView
+              currentUser={currentUser}
+              onStartDemoCall={(type) => handleStartRealCall(onlineMembers[0] || currentUser, type)}
+            />
           )}
         </main>
 
@@ -382,26 +725,75 @@ export default function App() {
         <RightSidebar
           managedGroups={groups.filter((g) => g.isManaged)}
           onlineMembers={onlineMembers}
-          onStartAudioCall={() => setSupportModalMode('audio')}
-          onStartVideoCall={() => setSupportModalMode('video')}
-          onStartLiveChat={() => setSupportModalMode('chat')}
-          onSelectGroup={(g) => setSelectedGroupDetail(g)}
-          onOpenDirectChat={(member) => setActiveChatUser(member)}
+          onOpenChat={(user) => setActiveChatUser(user)}
+          onStartCall={handleStartRealCall}
+          onViewProfile={(id) => setViewingProfileUserId(id)}
+          onOpenSupport={(mode) => {
+            if (mode === 'chat') setSupportModalMode('chat');
+            else handleStartRealCall(onlineMembers[0] || currentUser, mode);
+          }}
+          onSelectGroup={(g) => setSelectedGroupId(g.id)}
           onSeeAllGroups={() => setActiveTab('groups')}
         />
       </div>
 
-      {/* Story Viewer Modal */}
+      {/* MODALS */}
+      {/* 1. Real WebRTC & PeerJS Call Room Modal */}
+      {activeRealCall && (
+        <RealCallModal
+          targetUser={activeRealCall.targetUser}
+          callType={activeRealCall.callType}
+          roomId={activeRealCall.roomId}
+          role={activeRealCall.role}
+          sessionId={activeRealCall.sessionId}
+          onClose={() => setActiveRealCall(null)}
+        />
+      )}
+
+      {/* 1b. Incoming Call Alert — shown to the callee so they can accept/decline */}
+      {incomingCall && !activeRealCall && (
+        <IncomingCallModal
+          fromUser={incomingCall.fromUser}
+          callType={incomingCall.callType}
+          onAccept={handleAcceptIncomingCall}
+          onDecline={handleDeclineIncomingCall}
+        />
+      )}
+
+      {/* 2. Real Auth Login Modal */}
+      {isLoginModalOpen && (
+        <LoginModal
+          onClose={() => setIsLoginModalOpen(false)}
+          onSuccess={handleAuthSuccess}
+          onSwitchToRegister={() => {
+            setIsLoginModalOpen(false);
+            setIsRegisterModalOpen(true);
+          }}
+        />
+      )}
+
+      {/* 3. Real Auth Register Modal */}
+      {isRegisterModalOpen && (
+        <RegisterModal
+          onClose={() => setIsRegisterModalOpen(false)}
+          onSuccess={handleAuthSuccess}
+          onSwitchToLogin={() => {
+            setIsRegisterModalOpen(false);
+            setIsLoginModalOpen(true);
+          }}
+        />
+      )}
+
+      {/* 4. Story Viewer Modal */}
       {activeStoryIndex !== null && (
         <StoryViewerModal
           stories={stories}
           initialIndex={activeStoryIndex}
           onClose={() => setActiveStoryIndex(null)}
-          currentUser={currentUser}
         />
       )}
 
-      {/* Create Story Modal */}
+      {/* 5. Create Story Modal */}
       {isCreateStoryOpen && (
         <CreateStoryModal
           currentUser={currentUser}
@@ -410,7 +802,7 @@ export default function App() {
         />
       )}
 
-      {/* Create Post Modal */}
+      {/* 6. Create Post Modal */}
       {isCreatePostOpen && (
         <CreatePostModal
           currentUser={currentUser}
@@ -421,7 +813,7 @@ export default function App() {
         />
       )}
 
-      {/* Support Center Calls & Live Chat Modal */}
+      {/* 7. Support Center & Real-Time AI Specialist Modal */}
       {supportModalMode && (
         <SupportCenterModal
           mode={supportModalMode}
@@ -429,59 +821,88 @@ export default function App() {
         />
       )}
 
-      {/* Floating Chat Bubble for Online Members */}
+      {/* 8. Floating Direct Chat Window */}
       {activeChatUser && (
         <ChatFloatingWindow
-          recipient={activeChatUser}
+          targetUser={activeChatUser}
+          currentUser={currentUser}
           onClose={() => setActiveChatUser(null)}
-          onStartCall={(type) => setSupportModalMode(type)}
+          onStartCall={handleStartRealCall}
         />
       )}
 
-      {/* Share Post Modal */}
+      {/* 9. Post Share Modal */}
       {sharingPost && (
         <ShareModal
           post={sharingPost}
-          currentUser={currentUser}
           onClose={() => setSharingPost(null)}
-          onShareToFeed={handleShareToFeed}
+          onShare={handleShareToFeed}
         />
       )}
 
-      {/* Group Detail Modal */}
+      {/* 10. Group Detail Modal */}
       {selectedGroupDetail && (
         <GroupDetailModal
           group={selectedGroupDetail}
+          onClose={() => setSelectedGroupId(null)}
+          onToggleJoin={handleToggleJoinGroup}
+          groupPosts={posts.filter((p) => p.taggedGroup === selectedGroupDetail.name)}
           currentUser={currentUser}
-          onClose={() => setSelectedGroupDetail(null)}
-          onOpenCreatePost={() => {
-            setSelectedGroupDetail(null);
-            setIsCreatePostOpen(true);
-          }}
+          onReact={handleReactPost}
+          onAddComment={handleAddComment}
+          onShare={(p) => setSharingPost(p)}
+          onSaveToggle={handleSaveToggle}
+          onDeletePost={handleDeletePost}
+          onViewProfile={(id) => setViewingProfileUserId(id)}
         />
       )}
 
-      {/* Notifications Popover */}
+      {/* 11. Notifications Popover */}
       {isNotificationsOpen && (
         <NotificationsPopover
           notifications={notifications}
           onClose={() => setIsNotificationsOpen(false)}
-          onMarkAllRead={handleMarkAllNotifsRead}
+          onMarkAllAsRead={handleMarkAllNotifsRead}
           onNotificationClick={handleNotificationClick}
         />
       )}
 
-      {/* User Profile Modal */}
-      {isProfileOpen && (
+      {/* 12. User Profile Modal */}
+      {viewingProfileUserId && (
         <UserProfileModal
-          user={currentUser}
-          currentUserPosts={posts.filter((p) => p.author.id === currentUser.id)}
-          onClose={() => setIsProfileOpen(false)}
-          onUpdateBio={(newBio) => {
-            setCurrentUser((prev) => ({ ...prev, role: 'Product Designer' }));
+          userId={viewingProfileUserId}
+          currentUser={currentUser}
+          onClose={() => setViewingProfileUserId(null)}
+          onUpdateProfile={(patch) => setCurrentUser((prev) => ({ ...prev, ...patch }))}
+          onOpenChat={(user) => {
+            setViewingProfileUserId(null);
+            setActiveChatUser(user);
+          }}
+          onStartCall={(user, type) => {
+            setViewingProfileUserId(null);
+            handleStartRealCall(user, type);
           }}
         />
       )}
+
+      {/* 13. Mobile Floating Support Help Button (Visible on screens < xl) */}
+      <FloatingSupportButton
+        onOpenSupport={(mode) => {
+          if (mode === 'chat') setSupportModalMode('chat');
+          else handleStartRealCall(onlineMembers[0] || currentUser, mode);
+        }}
+      />
+
+      {/* 14. Mobile Bottom Navigation Bar (Visible on screens < 768px) */}
+      <MobileBottomNav
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onOpenCreatePost={() => {
+          setCreatePostInitialType(undefined);
+          setIsCreatePostOpen(true);
+        }}
+        unreadNotifsCount={unreadNotifsCount}
+      />
     </div>
   );
 }

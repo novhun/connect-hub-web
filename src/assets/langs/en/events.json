@@ -3,5 +3,16 @@
   "subtitle": "Discover meetups, design sessions, and hiking expeditions.",
   "attending": "Going",
   "attendEvent": "Attend Event",
-  "attendees": "attending"
+  "attendees": "attending",
+  "newEvent": "New Event",
+  "cancel": "Cancel",
+  "titlePlaceholder": "Event title",
+  "descriptionPlaceholder": "What's this event about?",
+  "locationPlaceholder": "Location",
+  "categoryPlaceholder": "Category (optional)",
+  "creating": "Publishing...",
+  "publishEvent": "Publish Event",
+  "noEvents": "No upcoming events yet.",
+  "noEventsHint": "Be the first to create one for the community!",
+  "deleteEvent": "Delete event"
 }

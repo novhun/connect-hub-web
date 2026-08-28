@@ -15,7 +15,9 @@
   "onlineStatus": "ស្ថានភាពអនឡាញ",
   "onlineStatusDesc": "បង្ហាញសញ្ញាពណ៌បៃតងនៅពេលអ្នកកំពុងប្រើប្រាស់ ConnectHub",
   "enabled": "បានបើក",
+  "disabled": "បានបិទ",
   "saveChanges": "រក្សាទុកការផ្លាស់ប្តូរ",
+  "saving": "កំពុងរក្សាទុក...",
   "savedSuccess": "បានរក្សាទុកចំណូលចិត្តដោយជោគជ័យ!",
   "languagePreference": "ជម្រើសភាសា",
   "selectLanguage": "ជ្រើសរើសភាសាបង្ហាញ"

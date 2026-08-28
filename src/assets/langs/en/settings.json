@@ -15,7 +15,9 @@
   "onlineStatus": "Online Status",
   "onlineStatusDesc": "Show green status badge when you're active on ConnectHub",
   "enabled": "Enabled",
+  "disabled": "Disabled",
   "saveChanges": "Save Changes",
+  "saving": "Saving...",
   "savedSuccess": "Preferences saved!",
   "languagePreference": "Language Preference",
   "selectLanguage": "Select display language"

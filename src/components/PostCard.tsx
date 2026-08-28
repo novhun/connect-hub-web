@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Post, ReactionType, User } from '../types';
 import { useLanguage } from '../context/LanguageContext';
+import { api } from '../services/api';
 
 interface PostCardProps {
   post: Post;
@@ -27,6 +28,7 @@ interface PostCardProps {
   onShare: (post: Post) => void;
   onSaveToggle: (postId: string) => void;
   onDeletePost?: (postId: string) => void;
+  onViewProfile?: (userId: string) => void;
 }
 
 export const PostCard: React.FC<PostCardProps> = ({
@@ -37,6 +39,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   onShare,
   onSaveToggle,
   onDeletePost,
+  onViewProfile,
 }) => {
   const { t, language } = useLanguage();
   const [showReactionsPicker, setShowReactionsPicker] = useState(false);
@@ -117,19 +120,23 @@ export const PostCard: React.FC<PostCardProps> = ({
   return (
     <article
       id={`post-${post.id}`}
-      className="bg-white rounded-2xl p-4 shadow-xs border border-gray-100/70 relative"
+      className="bg-white rounded-2xl p-3 sm:p-4 shadow-xs border border-gray-100/70 relative w-full overflow-hidden"
     >
       {/* BEGIN: Post Header */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between mb-2.5 sm:mb-3">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           <img
-            src={post.author.avatar}
+            src={api.getMediaUrl(post.author.avatar)}
             alt={post.author.name}
-            className="w-10 h-10 rounded-full border border-gray-100 object-cover"
+            onClick={() => onViewProfile?.(post.author.id)}
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-gray-100 object-cover shrink-0 cursor-pointer"
           />
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <h3 className="text-sm font-bold text-gray-900 leading-none hover:underline cursor-pointer">
+              <h3
+                onClick={() => onViewProfile?.(post.author.id)}
+                className="text-sm font-bold text-gray-900 leading-none hover:underline cursor-pointer"
+              >
                 {post.author.name}
               </h3>
               {post.taggedGroup && (
@@ -228,10 +235,10 @@ export const PostCard: React.FC<PostCardProps> = ({
             {post.images.length === 1 && (
               <div 
                 className="h-80 w-full cursor-pointer overflow-hidden group bg-gray-100"
-                onClick={() => setLightboxImage(post.images![0])}
+                onClick={() => setLightboxImage(api.getMediaUrl(post.images![0]))}
               >
                 <img
-                  src={post.images[0]}
+                  src={api.getMediaUrl(post.images[0])}
                   alt="Post image"
                   className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
                 />
@@ -244,10 +251,10 @@ export const PostCard: React.FC<PostCardProps> = ({
                   <div
                     key={idx}
                     className="h-full cursor-pointer overflow-hidden group bg-gray-100"
-                    onClick={() => setLightboxImage(img)}
+                    onClick={() => setLightboxImage(api.getMediaUrl(img))}
                   >
                     <img
-                      src={img}
+                      src={api.getMediaUrl(img)}
                       alt={`Post visual ${idx + 1}`}
                       className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
                     />
@@ -261,10 +268,10 @@ export const PostCard: React.FC<PostCardProps> = ({
               <div className="grid grid-cols-2 gap-1 h-64 sm:h-72">
                 <div 
                   className="h-full cursor-pointer overflow-hidden group bg-gray-100"
-                  onClick={() => setLightboxImage(post.images![0])}
+                  onClick={() => setLightboxImage(api.getMediaUrl(post.images![0]))}
                 >
                   <img
-                    src={post.images[0]}
+                    src={api.getMediaUrl(post.images[0])}
                     alt="Hike image 1"
                     className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
                   />
@@ -272,20 +279,20 @@ export const PostCard: React.FC<PostCardProps> = ({
                 <div className="grid grid-rows-2 gap-1 h-full">
                   <div 
                     className="h-full cursor-pointer overflow-hidden group bg-gray-100"
-                    onClick={() => setLightboxImage(post.images![1])}
+                    onClick={() => setLightboxImage(api.getMediaUrl(post.images![1]))}
                   >
                     <img
-                      src={post.images[1]}
+                      src={api.getMediaUrl(post.images[1])}
                       alt="Hike image 2"
                       className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
                     />
                   </div>
                   <div 
                     className="h-full cursor-pointer overflow-hidden group bg-gray-100"
-                    onClick={() => setLightboxImage(post.images![2])}
+                    onClick={() => setLightboxImage(api.getMediaUrl(post.images![2]))}
                   >
                     <img
-                      src={post.images[2]}
+                      src={api.getMediaUrl(post.images[2])}
                       alt="Hike image 3"
                       className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
                     />
@@ -298,10 +305,10 @@ export const PostCard: React.FC<PostCardProps> = ({
               <div className="grid grid-cols-2 gap-1 h-72">
                 <div 
                   className="h-full cursor-pointer overflow-hidden group bg-gray-100"
-                  onClick={() => setLightboxImage(post.images![0])}
+                  onClick={() => setLightboxImage(api.getMediaUrl(post.images![0]))}
                 >
                   <img
-                    src={post.images[0]}
+                    src={api.getMediaUrl(post.images[0])}
                     alt="Visual 1"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                   />
@@ -309,20 +316,20 @@ export const PostCard: React.FC<PostCardProps> = ({
                 <div className="grid grid-rows-2 gap-1 h-full">
                   <div 
                     className="h-full cursor-pointer overflow-hidden group bg-gray-100"
-                    onClick={() => setLightboxImage(post.images![1])}
+                    onClick={() => setLightboxImage(api.getMediaUrl(post.images![1]))}
                   >
                     <img
-                      src={post.images[1]}
+                      src={api.getMediaUrl(post.images[1])}
                       alt="Visual 2"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                     />
                   </div>
                   <div 
                     className="h-full cursor-pointer overflow-hidden relative group bg-gray-100"
-                    onClick={() => setLightboxImage(post.images![2])}
+                    onClick={() => setLightboxImage(api.getMediaUrl(post.images![2]))}
                   >
                     <img
-                      src={post.images[2]}
+                      src={api.getMediaUrl(post.images[2])}
                       alt="Visual 3"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                     />
@@ -408,7 +415,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
           onClick={handleQuickLike}
-          className={`flex-1 flex items-center justify-center gap-2 text-sm font-semibold py-2 rounded-xl transition-colors cursor-pointer select-none ${
+          className={`flex-1 flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm font-semibold py-1.5 sm:py-2 rounded-xl transition-colors cursor-pointer select-none ${
             post.userReaction
               ? currentReactionMeta?.color || 'text-[#2563eb]'
               : 'text-gray-600 hover:bg-gray-50'
@@ -417,7 +424,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           {post.userReaction ? (
             <span>{currentReactionMeta?.icon || '👍'}</span>
           ) : (
-            <ThumbsUp className="w-4 h-4" />
+            <ThumbsUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           )}
           <span>{currentReactionMeta ? currentReactionMeta.label : t('posts.like')}</span>
         </button>
@@ -426,9 +433,9 @@ export const PostCard: React.FC<PostCardProps> = ({
         <button
           id={`post-comment-btn-${post.id}`}
           onClick={() => setShowComments(!showComments)}
-          className="flex-1 flex items-center justify-center gap-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 py-2 rounded-xl transition-colors cursor-pointer select-none"
+          className="flex-1 flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm font-semibold text-gray-600 hover:bg-gray-50 py-1.5 sm:py-2 rounded-xl transition-colors cursor-pointer select-none"
         >
-          <MessageSquare className="w-4 h-4" />
+          <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           <span>{t('posts.comment')}</span>
         </button>
 
@@ -436,9 +443,9 @@ export const PostCard: React.FC<PostCardProps> = ({
         <button
           id={`post-share-btn-${post.id}`}
           onClick={() => onShare(post)}
-          className="flex-1 flex items-center justify-center gap-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 py-2 rounded-xl transition-colors cursor-pointer select-none"
+          className="flex-1 flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm font-semibold text-gray-600 hover:bg-gray-50 py-1.5 sm:py-2 rounded-xl transition-colors cursor-pointer select-none"
         >
-          <Share2 className="w-4 h-4" />
+          <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           <span>{t('posts.share')}</span>
         </button>
       </div>
@@ -446,33 +453,29 @@ export const PostCard: React.FC<PostCardProps> = ({
 
       {/* BEGIN: Comments Section */}
       {showComments && (
-        <div className="mt-3 pt-3 border-t border-gray-100 space-y-3">
+        <div className="mt-2.5 sm:mt-3 pt-2.5 sm:pt-3 border-t border-gray-100 space-y-2.5 sm:space-y-3">
           {/* Add New Comment */}
           <form onSubmit={handleCommentSubmit} className="flex gap-2 items-center">
             <img
               src={currentUser.avatar}
               alt={currentUser.name}
-              className="w-8 h-8 rounded-full border border-gray-200 object-cover shrink-0"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-gray-200 object-cover shrink-0"
             />
             <div className="flex-1 relative">
               <input
                 type="text"
                 value={newCommentText}
                 onChange={(e) => setNewCommentText(e.target.value)}
-                placeholder={t('posts.writeComment')}
-                className="w-full bg-[#f0f2f5] hover:bg-[#e4e6eb] focus:bg-white text-sm text-gray-800 placeholder-gray-500 rounded-full py-2 pl-4 pr-10 border-none outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                placeholder={`${t('posts.writeComment')}...`}
+                className="w-full bg-[#f0f2f5] hover:bg-[#e4e6eb] focus:bg-white text-xs sm:text-sm text-gray-800 placeholder-gray-500 rounded-full py-1.5 sm:py-2 pl-3 sm:pl-3.5 pr-8 sm:pr-9 border-none outline-none focus:ring-1 focus:ring-blue-500 transition-all"
               />
               <button
                 type="submit"
                 disabled={!newCommentText.trim()}
-                className={`absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-colors ${
-                  newCommentText.trim()
-                    ? 'text-blue-600 hover:bg-blue-50 cursor-pointer'
-                    : 'text-gray-400 cursor-not-allowed'
-                }`}
+                className="absolute right-1.5 sm:right-2 top-1/2 -translate-y-1/2 p-1 text-[#2563eb] disabled:text-gray-400 hover:bg-blue-50 rounded-full transition-colors cursor-pointer"
                 aria-label="Send comment"
               >
-                <Send className="w-4 h-4" />
+                <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
             </div>
           </form>
@@ -485,11 +488,15 @@ export const PostCard: React.FC<PostCardProps> = ({
                   <img
                     src={comment.user.avatar}
                     alt={comment.user.name}
-                    className="w-8 h-8 rounded-full object-cover border border-gray-200 shrink-0 mt-0.5"
+                    onClick={() => onViewProfile?.(comment.user.id)}
+                    className="w-8 h-8 rounded-full object-cover border border-gray-200 shrink-0 mt-0.5 cursor-pointer"
                   />
                   <div className="flex-1">
                     <div className="bg-[#f0f2f5] rounded-2xl px-3.5 py-2 inline-block max-w-full">
-                      <span className="font-semibold text-xs text-gray-900 block hover:underline cursor-pointer">
+                      <span
+                        onClick={() => onViewProfile?.(comment.user.id)}
+                        className="font-semibold text-xs text-gray-900 block hover:underline cursor-pointer"
+                      >
                         {comment.user.name}
                       </span>
                       <p className="text-sm text-gray-800 mt-0.5 leading-snug break-words">

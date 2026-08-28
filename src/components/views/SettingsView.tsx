@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { Shield, Bell, Lock, Globe, Moon, Eye, Smartphone, Check } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Shield, Bell, Globe, Check, Loader2 } from 'lucide-react';
 import { User } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
+import { settingsApi } from '../../modules/settings/api';
+import { api } from '../../services/api';
 
 interface SettingsViewProps {
   currentUser: User;
@@ -9,21 +11,65 @@ interface SettingsViewProps {
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
   const { language, setLanguage, t } = useLanguage();
-  const [emailNotifs, setEmailNotifs] = useState(true);
-  const [callRinging, setCallRinging] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [pushNotifications, setPushNotifications] = useState(true);
+  const [callRingtone, setCallRingtone] = useState(true);
+  const [defaultAudience, setDefaultAudience] = useState<'public' | 'friends' | 'only_me'>('public');
+  const [showOnlineStatus, setShowOnlineStatus] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  const handleSave = () => {
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 2500);
+  useEffect(() => {
+    settingsApi
+      .getSettings()
+      .then((s) => {
+        setPushNotifications(s.pushNotifications);
+        setCallRingtone(s.callRingtone);
+        setDefaultAudience(s.defaultAudience);
+        setShowOnlineStatus(s.showOnlineStatus);
+      })
+      .catch((e) => console.warn('Load settings API notice:', e))
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const handleToggleOnlineStatus = async () => {
+    const next = !showOnlineStatus;
+    setShowOnlineStatus(next);
+    try {
+      await settingsApi.updateSettings({ showOnlineStatus: next });
+      await api.updatePresence(next);
+    } catch (e) {
+      console.warn('Update online status API notice:', e);
+    }
   };
 
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await settingsApi.updateSettings({ pushNotifications, callRingtone, defaultAudience });
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 2500);
+    } catch (e) {
+      console.warn('Save settings API notice:', e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-2xl mx-auto flex items-center justify-center py-24">
+        <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-2xl mx-auto space-y-6 pb-12">
-      <div className="bg-white rounded-2xl p-6 shadow-xs border border-gray-100 flex items-center justify-between">
+    <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6 pb-12">
+      <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-xs border border-gray-100 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">{t('settings.title')}</h1>
-          <p className="text-xs text-gray-500 mt-1">{t('settings.subtitle')}</p>
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900">{t('settings.title')}</h1>
+          <p className="text-xs text-gray-500 mt-0.5 sm:mt-1">{t('settings.subtitle')}</p>
         </div>
       </div>
 
@@ -82,8 +128,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
             </div>
             <input
               type="checkbox"
-              checked={emailNotifs}
-              onChange={() => setEmailNotifs(!emailNotifs)}
+              checked={pushNotifications}
+              onChange={() => setPushNotifications((v) => !v)}
               className="w-4 h-4 text-blue-600 rounded"
             />
           </label>
@@ -95,8 +141,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
             </div>
             <input
               type="checkbox"
-              checked={callRinging}
-              onChange={() => setCallRinging(!callRinging)}
+              checked={callRingtone}
+              onChange={() => setCallRingtone((v) => !v)}
               className="w-4 h-4 text-blue-600 rounded"
             />
           </label>
@@ -116,10 +162,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
               <span className="font-semibold text-sm text-gray-800 block">{t('settings.defaultAudience')}</span>
               <span className="text-gray-400">{t('settings.defaultAudienceDesc')}</span>
             </div>
-            <select className="bg-gray-100 rounded-lg p-2 font-semibold text-gray-700 outline-none">
-              <option>{t('settings.publicEveryone')}</option>
-              <option>{t('settings.friendsOnly')}</option>
-              <option>{t('settings.onlyMeOption')}</option>
+            <select
+              value={defaultAudience}
+              onChange={(e) => setDefaultAudience(e.target.value as 'public' | 'friends' | 'only_me')}
+              className="bg-gray-100 rounded-lg p-2 font-semibold text-gray-700 outline-none cursor-pointer"
+            >
+              <option value="public">{t('settings.publicEveryone')}</option>
+              <option value="friends">{t('settings.friendsOnly')}</option>
+              <option value="only_me">{t('settings.onlyMeOption')}</option>
             </select>
           </div>
 
@@ -128,9 +178,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
               <span className="font-semibold text-sm text-gray-800 block">{t('settings.onlineStatus')}</span>
               <span className="text-gray-400">{t('settings.onlineStatusDesc')}</span>
             </div>
-            <span className="px-3 py-1 bg-green-50 text-green-700 font-semibold rounded-full border border-green-200">
-              {t('settings.enabled')}
-            </span>
+            <button
+              onClick={handleToggleOnlineStatus}
+              className={`px-3 py-1 font-semibold rounded-full border cursor-pointer transition-colors ${
+                showOnlineStatus
+                  ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                  : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
+              }`}
+            >
+              {showOnlineStatus ? t('settings.enabled') : t('settings.disabled')}
+            </button>
           </div>
         </div>
       </div>
@@ -144,9 +201,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
         )}
         <button
           onClick={handleSave}
-          className="px-6 py-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-semibold text-xs rounded-xl shadow-xs cursor-pointer active:scale-98 transition-transform"
+          disabled={saving}
+          className="px-6 py-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] disabled:bg-gray-400 text-white font-semibold text-xs rounded-xl shadow-xs cursor-pointer active:scale-98 transition-transform"
         >
-          {t('settings.saveChanges')}
+          {saving ? t('settings.saving') : t('settings.saveChanges')}
         </button>
       </div>
     </div>

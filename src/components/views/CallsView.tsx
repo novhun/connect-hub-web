@@ -1,7 +1,8 @@
-import React from 'react';
-import { Phone, Video, PhoneIncoming, PhoneOutgoing, Plus, Clock, User } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Phone, Video, PhoneIncoming, PhoneOutgoing } from 'lucide-react';
 import { User as UserType } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
+import { api } from '../../services/api';
 
 interface CallsViewProps {
   onlineMembers: UserType[];
@@ -12,56 +13,56 @@ export const CallsView: React.FC<CallsViewProps> = ({
   onlineMembers,
   onStartCall,
 }) => {
-  const { t, language } = useLanguage();
-  const callLogs = [
-    { 
-      user: onlineMembers[0], 
-      type: 'incoming', 
-      date: language === 'km' ? 'ថ្ងៃនេះ, 1:15 PM' : 'Today, 1:15 PM', 
-      status: 'missed', 
-      callType: 'video' 
-    },
-    { 
-      user: onlineMembers[1], 
-      type: 'outgoing', 
-      date: language === 'km' ? 'ម្សិលមិញ, 4:20 PM' : 'Yesterday, 4:20 PM', 
-      status: 'completed', 
-      duration: language === 'km' ? '14 នាទី 20 វិនាទី' : '14m 20s', 
-      callType: 'audio' 
-    },
-    { 
-      user: onlineMembers[2], 
-      type: 'incoming', 
-      date: language === 'km' ? '24 សីហា, 11:00 AM' : 'Aug 24, 11:00 AM', 
-      status: 'completed', 
-      duration: language === 'km' ? '32 នាទី 05 វិនាទី' : '32m 05s', 
-      callType: 'video' 
-    },
-  ];
+  const { t } = useLanguage();
+  const [callLogs, setCallLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchCallLogs = async () => {
+    try {
+      const logs = await api.getCallHistory();
+      setCallLogs(logs || []);
+    } catch (e) {
+      console.warn('Fetch call history API notice:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCallLogs();
+  }, []);
+
+  const handleStartCallWithApi = (user: UserType, type: 'audio' | 'video') => {
+    onStartCall(user, type);
+  };
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-12">
       {/* Header */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center justify-between">
+      <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">{t('calls.title')}</h1>
-          <p className="text-xs text-gray-500 mt-1">{t('calls.subtitle')}</p>
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900">{t('calls.title')}</h1>
+          <p className="text-xs text-gray-500 mt-0.5 sm:mt-1">{t('calls.subtitle')}</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => onStartCall(onlineMembers[0], 'audio')}
-            className="px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
-          >
-            <Phone className="w-3.5 h-3.5" />
-            <span>{t('calls.newAudioCall')}</span>
-          </button>
-          <button
-            onClick={() => onStartCall(onlineMembers[0], 'video')}
-            className="px-4 py-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
-          >
-            <Video className="w-3.5 h-3.5" />
-            <span>{t('calls.newVideoRoom')}</span>
-          </button>
+        <div className="flex gap-2 shrink-0">
+          {onlineMembers.length > 0 && (
+            <>
+              <button
+                onClick={() => handleStartCallWithApi(onlineMembers[0], 'audio')}
+                className="flex-1 sm:flex-initial px-3 sm:px-4 py-2 sm:py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span>{t('calls.newAudioCall')}</span>
+              </button>
+              <button
+                onClick={() => handleStartCallWithApi(onlineMembers[0], 'video')}
+                className="flex-1 sm:flex-initial px-3 sm:px-4 py-2 sm:py-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <Video className="w-3.5 h-3.5" />
+                <span>{t('calls.newVideoRoom')}</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -76,7 +77,7 @@ export const CallsView: React.FC<CallsViewProps> = ({
             >
               <div className="flex items-center gap-2.5">
                 <img
-                  src={member.avatar}
+                  src={api.getMediaUrl(member.avatar)}
                   alt={member.name}
                   className="w-10 h-10 rounded-full object-cover border border-gray-200"
                 />
@@ -87,14 +88,14 @@ export const CallsView: React.FC<CallsViewProps> = ({
               </div>
               <div className="flex gap-1">
                 <button
-                  onClick={() => onStartCall(member, 'audio')}
+                  onClick={() => handleStartCallWithApi(member, 'audio')}
                   className="p-2 bg-white hover:bg-green-50 text-green-600 rounded-lg border border-gray-200 shadow-2xs cursor-pointer"
                   title="Audio call"
                 >
                   <Phone className="w-3.5 h-3.5" />
                 </button>
                 <button
-                  onClick={() => onStartCall(member, 'video')}
+                  onClick={() => handleStartCallWithApi(member, 'video')}
                   className="p-2 bg-white hover:bg-blue-50 text-blue-600 rounded-lg border border-gray-200 shadow-2xs cursor-pointer"
                   title="Video call"
                 >
@@ -109,17 +110,22 @@ export const CallsView: React.FC<CallsViewProps> = ({
       {/* Recent Calls History */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
         <h2 className="text-sm font-bold text-gray-900 mb-3">{t('calls.callHistory')}</h2>
+        {loading ? (
+          <div className="py-8 text-center text-xs text-gray-400">{t('calls.loadingHistory')}</div>
+        ) : callLogs.length === 0 ? (
+          <div className="py-8 text-center text-xs text-gray-400">{t('calls.noCallHistory')}</div>
+        ) : (
         <div className="divide-y divide-gray-100">
           {callLogs.map((log, idx) => (
             <div key={idx} className="py-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <img
-                  src={log.user.avatar}
-                  alt={log.user.name}
+                  src={api.getMediaUrl(log.user?.avatar)}
+                  alt={log.user?.name}
                   className="w-10 h-10 rounded-full object-cover border border-gray-200"
                 />
                 <div>
-                  <h4 className="text-sm font-semibold text-gray-900">{log.user.name}</h4>
+                  <h4 className="text-sm font-semibold text-gray-900">{log.user?.name}</h4>
                   <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5">
                     {log.type === 'incoming' ? (
                       <PhoneIncoming className={`w-3.5 h-3.5 ${log.status === 'missed' ? 'text-red-500' : 'text-green-500'}`} />
@@ -134,7 +140,7 @@ export const CallsView: React.FC<CallsViewProps> = ({
 
               <div className="flex gap-2">
                 <button
-                  onClick={() => onStartCall(log.user, log.callType as any)}
+                  onClick={() => handleStartCallWithApi(log.user, log.callType || 'audio')}
                   className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg flex items-center gap-1 cursor-pointer"
                 >
                   {log.callType === 'video' ? <Video className="w-3.5 h-3.5" /> : <Phone className="w-3.5 h-3.5" />}
@@ -144,6 +150,7 @@ export const CallsView: React.FC<CallsViewProps> = ({
             </div>
           ))}
         </div>
+        )}
       </div>
     </div>
   );

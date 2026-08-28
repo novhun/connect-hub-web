@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Check, Bell, MessageSquare, ThumbsUp, Users, Phone } from 'lucide-react';
 import { NotificationItem } from '../types';
 import { useLanguage } from '../context/LanguageContext';
+import { api } from '../services/api';
 
 interface NotificationsPopoverProps {
   notifications: NotificationItem[];
@@ -37,11 +38,11 @@ export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 bg-black/30 z-50 flex items-start justify-center sm:justify-end pt-16 sm:pr-20 backdrop-blur-xs animate-in fade-in duration-100"
+      className="fixed inset-0 bg-black/30 z-50 flex items-start justify-center sm:justify-end pt-14 sm:pt-16 sm:pr-16 md:pr-20 backdrop-blur-xs animate-in fade-in duration-100"
       onClick={onClose}
     >
       <div 
-        className="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col m-3"
+        className="bg-white w-[calc(100vw-24px)] sm:w-full max-w-sm rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col m-2 sm:m-3"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/70">
@@ -75,9 +76,9 @@ export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({
             >
               <div className="relative shrink-0">
                 <img
-                  src={notif.user.avatar}
+                  src={api.getMediaUrl(notif.user.avatar)}
                   alt={notif.user.name}
-                  className="w-10 h-10 rounded-full object-cover border border-gray-200"
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-gray-200"
                 />
                 <div className="absolute -bottom-1 -right-1 bg-white p-1 rounded-full shadow-xs">
                   {getIcon(notif.type)}

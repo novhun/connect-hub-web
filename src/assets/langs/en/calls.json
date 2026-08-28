@@ -6,5 +6,7 @@
   "quickConnect": "Quick Connect (Online Now)",
   "available": "Available",
   "callHistory": "Call History",
-  "callback": "Callback"
+  "callback": "Callback",
+  "loadingHistory": "Loading call history...",
+  "noCallHistory": "No calls yet. Start one above!"
 }

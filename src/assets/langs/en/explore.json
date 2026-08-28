@@ -3,5 +3,9 @@
   "subtitle": "Find what's trending across communities, trails, tech, and creative hubs.",
   "trendingTopics": "Trending Topics Today",
   "trendingVisuals": "Trending Visuals & Media",
-  "postsCount": "posts"
+  "postsCount": "posts",
+  "noTrendingTopics": "No hashtags trending yet — use #tags in your posts to start one!",
+  "noPostsForTag": "No posts found for this tag.",
+  "noVisuals": "No photos shared yet.",
+  "discoverGroups": "Discover Groups"
 }

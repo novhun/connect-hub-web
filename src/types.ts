@@ -2,9 +2,14 @@ export interface User {
   id: string;
   name: string;
   avatar: string;
+  email?: string;
   role?: string;
+  bio?: string;
+  jobTitle?: string;
+  location?: string;
   isOnline?: boolean;
   lastSeen?: string;
+  createdAt?: string;
 }
 
 export interface Story {
@@ -94,4 +99,48 @@ export interface ChatSession {
   messages: DirectMessage[];
   isOpen: boolean;
   isMinimized: boolean;
+}
+
+export interface EventItem {
+  id: string;
+  title: string;
+  description?: string;
+  location: string;
+  category?: string;
+  coverImage?: string;
+  startAt: string;
+  date: string;
+  attendeesCount: number;
+  isAttending: boolean;
+  isCreator: boolean;
+  creatorId: string;
+}
+
+export interface SupportMessage {
+  id: string;
+  sender: 'user' | 'assistant';
+  text: string;
+  timestamp: string;
+}
+
+export interface UserSettings {
+  pushNotifications: boolean;
+  callRingtone: boolean;
+  defaultAudience: 'public' | 'friends' | 'only_me';
+  showOnlineStatus: boolean;
+}
+
+export type FriendStatus = 'none' | 'pending_sent' | 'pending_received' | 'friends' | 'self';
+
+export interface FriendStatusInfo {
+  status: FriendStatus;
+  requestId?: string;
+}
+
+export interface FriendRequestItem {
+  id: string;
+  user: User;
+  status: 'pending' | 'accepted';
+  direction: 'incoming' | 'outgoing';
+  createdAt: string;
 }
