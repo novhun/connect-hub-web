@@ -1,0 +1,83 @@
+{
+  "name": "ConnectHub - Next-Gen Social Network",
+  "short_name": "ConnectHub",
+  "description": "Connect with friends, share stories, make HD audio and video calls, and explore communities in Cambodia and worldwide.",
+  "start_url": "/?source=pwa",
+  "id": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f0f2f5",
+  "theme_color": "#2563eb",
+  "lang": "km",
+  "dir": "ltr",
+  "categories": [
+    "social",
+    "lifestyle",
+    "communication"
+  ],
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Feed / ផ្ទាំងព័ត៌មាន",
+      "short_name": "Feed",
+      "description": "View the latest posts and stories",
+      "url": "/?tab=home",
+      "icons": [
+        {
+          "src": "/icon.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Explore Communities / រុករក",
+      "short_name": "Explore",
+      "description": "Discover communities and trending topics",
+      "url": "/?tab=explore",
+      "icons": [
+        {
+          "src": "/icon.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "HD Calls / ការហៅទូរស័ព្ទ",
+      "short_name": "Calls",
+      "description": "Direct WebRTC voice and video calls",
+      "url": "/?tab=calls",
+      "icons": [
+        {
+          "src": "/icon.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Notifications / ការជូនដំណឹង",
+      "short_name": "Notifications",
+      "description": "View updates and reactions",
+      "url": "/?tab=notifications",
+      "icons": [
+        {
+          "src": "/icon.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

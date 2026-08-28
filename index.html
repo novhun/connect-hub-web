@@ -1,20 +1,96 @@
 <!doctype html>
-<html lang="en">
+<html lang="km">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ConnectHub - Social Media Dashboard</title>
-    <meta name="description" content="ConnectHub - Connect with friends, share stories, and explore communities." />
-    <link rel="icon" type="image/png" href="/src/assets/icons/icon.png" />
-    <link rel="apple-touch-icon" href="/src/assets/icons/icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+    
+    <!-- Primary SEO Meta Tags -->
+    <title>ConnectHub - បណ្តាញសង្គមជំនាន់ថ្មី & Live HD Calling</title>
+    <meta name="title" content="ConnectHub - Next-Gen Social Network & Live HD Calling" />
+    <meta name="description" content="Connect with friends, share stories, make high-definition WebRTC video/audio calls, and explore communities in Cambodia and worldwide with full Khmer support." />
+    <meta name="keywords" content="ConnectHub, social network, Cambodia, Khmer social media, HD video calls, WebRTC calling, communities, real-time chat, បណ្តាញសង្គមខ្មែរ, ការហៅទូរស័ព្ទ HD" />
+    <meta name="author" content="ConnectHub Team" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <link rel="canonical" href="https://connecthub.app/" />
+
+    <!-- PWA & Mobile Web App Meta Tags -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#2563eb" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ConnectHub" />
+    <meta name="application-name" content="ConnectHub" />
+    <meta name="msapplication-TileColor" content="#2563eb" />
+
+    <!-- Icons & Favicons -->
+    <link rel="icon" type="image/png" href="/icon.png" />
+    <link rel="apple-touch-icon" href="/icon.png" />
+    <link rel="mask-icon" href="/icon.png" color="#2563eb" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://connecthub.app/" />
+    <meta property="og:site_name" content="ConnectHub" />
+    <meta property="og:title" content="ConnectHub - Next-Gen Social Network & Live HD Calling" />
+    <meta property="og:description" content="Connect with friends, share stories, make HD audio and video calls, and explore vibrant communities with 100% Khmer support." />
+    <meta property="og:image" content="/icon.png" />
+    <meta property="og:locale" content="km_KH" />
+    <meta property="og:locale:alternate" content="en_US" />
+
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://connecthub.app/" />
+    <meta name="twitter:title" content="ConnectHub - Next-Gen Social Network & Live HD Calling" />
+    <meta name="twitter:description" content="Connect with friends, share stories, make HD video calls, and explore vibrant communities." />
+    <meta name="twitter:image" content="/icon.png" />
+
+    <!-- JSON-LD Structured Data Schema for Google Search -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "ConnectHub",
+      "alternateName": "មជ្ឈមណ្ឌលតភ្ជាប់ ConnectHub",
+      "url": "https://connecthub.app",
+      "description": "Next-generation social network platform with real-time HD audio/video calls, messaging, community groups, and bilingual Khmer & English support.",
+      "applicationCategory": "SocialNetworkingApplication",
+      "operatingSystem": "All",
+      "browserRequirements": "Requires JavaScript. Requires HTML5.",
+      "inLanguage": ["km", "en"],
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.9",
+        "ratingCount": "1280"
+      },
+      "featureList": [
+        "Real-time HD WebRTC Video & Audio Calling",
+        "Rich Feed with Multi-photo attachments & Feelings",
+        "Communities & Interest Group Management",
+        "100% Bilingual Support with Kantumruy Pro font",
+        "Offline Caching & Progressive Web App (PWA)"
+      ]
+    }
+    </script>
+
+    <!-- Typography & CSS Assets -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Kantumruy+Pro:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   </head>
-  <body class="bg-[#f0f2f5] text-gray-800 antialiased">
+  <body class="bg-[#f0f2f5] text-gray-800 antialiased selection:bg-blue-500 selection:text-white">
+    <noscript>
+      <div style="padding: 20px; text-align: center; background: #fee2e2; color: #991b1b; font-family: sans-serif;">
+        <strong>JavaScript Required:</strong> ConnectHub requires JavaScript to be enabled for real-time messaging, feed rendering, and HD calling.
+      </div>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

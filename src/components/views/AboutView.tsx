@@ -144,7 +144,7 @@ export const AboutView: React.FC<AboutViewProps> = ({
             <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
               {language === 'km' ? 'ស្វាគមន៍មកកាន់ ' : 'Welcome to '}
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400">
-                Connect-Hub
+                មជ្ឈមណ្ឌលតភ្ជាប់
               </span>
             </h1>
           </div>

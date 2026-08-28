@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Shield, Bell, Globe, Check, Loader2, User as UserIcon, Camera, Image as ImageIcon, Edit3, MapPin, Briefcase } from 'lucide-react';
+import { Shield, Bell, Globe, Check, Loader2, User as UserIcon, Camera, Image as ImageIcon, Edit3, MapPin, Briefcase, Smartphone, Download } from 'lucide-react';
 import { User } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { settingsApi } from '../../modules/settings/api';
 import { api } from '../../services/api';
 import { EditProfileModal } from '../EditProfileModal';
+import { promptPwaInstall } from '../../registerServiceWorker';
 
 interface SettingsViewProps {
   currentUser: User;
@@ -262,6 +263,48 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ currentUser, onUpdat
               {showOnlineStatus ? t('settings.enabled') : t('settings.disabled')}
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Progressive Web App (PWA) & Mobile Installation */}
+      <div className="bg-white rounded-2xl p-6 shadow-xs border border-gray-100 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+            <Smartphone className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-gray-900">
+              {language === 'km' ? 'កម្មវិធីទូរស័ព្ទ & កុំព្យូទ័រ (PWA Application)' : 'Mobile & Desktop App (PWA)'}
+            </h2>
+            <p className="text-xs text-gray-500">
+              {language === 'km'
+                ? 'ដំឡើង ConnectHub លើ Home Screen ទូរស័ព្ទ (iOS / Android) ឬកុំព្យូទ័រ ដើម្បីទទួលបានបទពិសោធន៍លឿន និង Offline Caching'
+                : 'Install ConnectHub on your Home Screen or Desktop for fast offline caching and full-screen experience.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-xs">
+              <Download className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="font-bold text-sm text-gray-900 block">
+                {language === 'km' ? 'ដំឡើង ConnectHub App' : 'Install ConnectHub App'}
+              </span>
+              <span className="text-xs text-gray-600">
+                {language === 'km' ? 'កំណែ Standalone PWA v1.2.0 • គាំទ្រការប្រើប្រាស់ល្បឿនលឿន' : 'Standalone PWA v1.2.0 • Offline Ready & Push Support'}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => promptPwaInstall()}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+            <span>{language === 'km' ? 'ដំឡើងឥឡូវនេះ' : 'Install Now'}</span>
+          </button>
         </div>
       </div>
 

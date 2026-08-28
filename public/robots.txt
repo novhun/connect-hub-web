@@ -1,0 +1,8 @@
+# Robots.txt for ConnectHub
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+
+# Sitemap
+Sitemap: https://connecthub.app/sitemap.xml

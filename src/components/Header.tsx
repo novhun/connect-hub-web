@@ -14,12 +14,15 @@ import {
   X,
   Globe,
   Menu,
-  Sparkles
+  Sparkles,
+  Smartphone,
+  Download
 } from 'lucide-react';
 import { User, NotificationItem } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
 import appLogo from '../assets/icons/icon.png';
+import { initPwaInstallPrompt, promptPwaInstall } from '../registerServiceWorker';
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -69,9 +72,23 @@ export const Header: React.FC<HeaderProps> = ({
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [userResults, setUserResults] = useState<User[]>([]);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+  const [canInstallPwa, setCanInstallPwa] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const debouncedQuery = useDebouncedValue(searchQuery.trim(), 300);
+
+  useEffect(() => {
+    initPwaInstallPrompt(() => {
+      setCanInstallPwa(true);
+    });
+  }, []);
+
+  const handleInstallApp = async () => {
+    const installed = await promptPwaInstall();
+    if (installed) {
+      setCanInstallPwa(false);
+    }
+  };
 
   useEffect(() => {
     if (!debouncedQuery) {
@@ -267,6 +284,20 @@ export const Header: React.FC<HeaderProps> = ({
           </span>
         </button>
 
+        {/* PWA Install Button */}
+        {canInstallPwa && (
+          <button
+            onClick={handleInstallApp}
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-xs transition-all cursor-pointer animate-in fade-in"
+            title={language === 'km' ? 'ដំឡើង ConnectHub លើទូរស័ព្ទ ឬកុំព្យូទ័រ' : 'Install ConnectHub on Mobile or Desktop'}
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+            <span className="font-medium text-[11px]">
+              {language === 'km' ? 'ដំឡើង App' : 'Install App'}
+            </span>
+          </button>
+        )}
+
         <nav className="flex items-center gap-1 sm:gap-1.5">
           {/* Home Icon (Desktop Only) */}
           <button
@@ -403,6 +434,16 @@ export const Header: React.FC<HeaderProps> = ({
                   >
                     <HelpCircle className="w-4 h-4 text-gray-500" />
                     <span>{t('header.support')}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleInstallApp();
+                      setShowProfileMenu(false);
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-3 cursor-pointer font-medium"
+                  >
+                    <Download className="w-4 h-4 text-blue-600" />
+                    <span>{language === 'km' ? 'ដំឡើងកម្មវិធី ConnectHub (PWA)' : 'Install ConnectHub (PWA)'}</span>
                   </button>
                 </div>
 
