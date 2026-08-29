@@ -153,13 +153,29 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
     };
 
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'failed') {
+      if (pc.connectionState === 'connected') {
+        setCallStatus('connected');
+      } else if (pc.connectionState === 'failed') {
         finishCall('failed');
       }
     };
 
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        setCallStatus('connected');
+      }
+    };
+
+    // Attach local stream tracks or add explicit transceivers to guarantee video & audio negotiation
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => pc.addTrack(track, localStreamRef.current!));
+      localStreamRef.current.getTracks().forEach((track) => {
+        pc.addTrack(track, localStreamRef.current!);
+      });
+    } else {
+      pc.addTransceiver('audio', { direction: 'sendrecv' });
+      if (callType === 'video') {
+        pc.addTransceiver('video', { direction: 'sendrecv' });
+      }
     }
 
     pcRef.current = pc;
@@ -212,10 +228,24 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
           if (role !== 'caller' || answeredRef.current) return;
           answeredRef.current = true;
           setCallStatus('connecting');
-          if (!localStreamRef.current) await initMediaStream();
+          const stream = await initMediaStream();
           const pc = createPeerConnection();
+          if (stream) {
+            stream.getTracks().forEach((track) => {
+              const senders = pc.getSenders();
+              const existing = senders.find((s) => s.track?.kind === track.kind);
+              if (existing) {
+                existing.replaceTrack(track).catch(() => {});
+              } else {
+                pc.addTrack(track, stream);
+              }
+            });
+          }
           try {
-            const offer = await pc.createOffer();
+            const offer = await pc.createOffer({
+              offerToReceiveAudio: true,
+              offerToReceiveVideo: callType === 'video',
+            });
             await pc.setLocalDescription(offer);
             realtime.send({ type: 'WEBRTC_OFFER', targetUserId: targetUser.id, roomId, sdp: pc.localDescription });
           } catch (e) {
@@ -225,8 +255,19 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
         }
         case 'WEBRTC_OFFER': {
           if (role !== 'callee') return;
-          if (!localStreamRef.current) await initMediaStream();
+          const stream = await initMediaStream();
           const pc = createPeerConnection();
+          if (stream) {
+            stream.getTracks().forEach((track) => {
+              const senders = pc.getSenders();
+              const existing = senders.find((s) => s.track?.kind === track.kind);
+              if (existing) {
+                existing.replaceTrack(track).catch(() => {});
+              } else {
+                pc.addTrack(track, stream);
+              }
+            });
+          }
           try {
             await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
             remoteDescSetRef.current = true;
@@ -248,6 +289,7 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
             await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
             remoteDescSetRef.current = true;
             await flushPendingCandidates();
+            setCallStatus('connected');
           } catch (e) {
             console.warn('Set remote answer notice:', e);
           }
