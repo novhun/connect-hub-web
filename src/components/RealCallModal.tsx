@@ -81,6 +81,7 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
       localStreamRef.current = stream;
       if (localVideoRef.current && callType === 'video') {
         localVideoRef.current.srcObject = stream;
+        localVideoRef.current.play().catch(() => {});
       }
       return stream;
     } catch (err) {
@@ -97,13 +98,28 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
   const attachRemoteStream = () => {
     const stream = remoteStreamRef.current;
     if (!stream) return;
-    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = stream;
-    if (remoteAudioRef.current) remoteAudioRef.current.srcObject = stream;
+    if (remoteVideoRef.current) {
+      if (remoteVideoRef.current.srcObject !== stream) {
+        remoteVideoRef.current.srcObject = stream;
+      }
+      remoteVideoRef.current.play().catch(() => {});
+    }
+    if (remoteAudioRef.current) {
+      if (remoteAudioRef.current.srcObject !== stream) {
+        remoteAudioRef.current.srcObject = stream;
+      }
+      remoteAudioRef.current.play().catch(() => {});
+    }
   };
 
   useEffect(() => {
+    // Proactively initialize user media immediately on modal mount for both caller and callee
+    initMediaStream();
+  }, []);
+
+  useEffect(() => {
     attachRemoteStream();
-  }, [hasRemoteStream, callType, isVideoOff]);
+  }, [hasRemoteStream, callType, callStatus]);
 
   const getVideoSender = () => pcRef.current?.getSenders().find((s) => s.track?.kind === 'video');
 
@@ -123,9 +139,17 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
     };
 
     pc.ontrack = (e) => {
-      remoteStreamRef.current = e.streams[0];
+      if (e.streams && e.streams[0]) {
+        remoteStreamRef.current = e.streams[0];
+      } else {
+        if (!remoteStreamRef.current) {
+          remoteStreamRef.current = new MediaStream();
+        }
+        remoteStreamRef.current.addTrack(e.track);
+      }
       setHasRemoteStream(true);
       setCallStatus('connected');
+      attachRemoteStream();
     };
 
     pc.onconnectionstatechange = () => {
@@ -321,11 +345,44 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
     setIsMuted(!isMuted);
   };
 
-  const handleToggleVideo = () => {
-    localStreamRef.current?.getVideoTracks().forEach((track) => {
-      track.enabled = !track.enabled;
-    });
-    setIsVideoOff(!isVideoOff);
+  const handleToggleVideo = async () => {
+    if (isVideoOff) {
+      // Turning camera back ON
+      let videoTrack = localStreamRef.current?.getVideoTracks()[0];
+      if (!videoTrack) {
+        try {
+          const newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
+          const newTrack = newStream.getVideoTracks()[0];
+          if (localStreamRef.current) {
+            localStreamRef.current.addTrack(newTrack);
+          } else {
+            localStreamRef.current = newStream;
+          }
+          videoTrack = newTrack;
+          const sender = getVideoSender();
+          if (sender) {
+            await sender.replaceTrack(newTrack);
+          } else if (pcRef.current) {
+            pcRef.current.addTrack(newTrack, localStreamRef.current);
+          }
+        } catch (err) {
+          console.warn('Failed to start camera track:', err);
+        }
+      } else {
+        videoTrack.enabled = true;
+      }
+      if (localVideoRef.current && localStreamRef.current) {
+        localVideoRef.current.srcObject = localStreamRef.current;
+        localVideoRef.current.play().catch(() => {});
+      }
+      setIsVideoOff(false);
+    } else {
+      // Turning camera OFF
+      localStreamRef.current?.getVideoTracks().forEach((track) => {
+        track.enabled = false;
+      });
+      setIsVideoOff(true);
+    }
   };
 
   const stopScreenShare = () => {
@@ -395,7 +452,7 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
     return language === 'km' ? 'បានតភ្ជាប់ (WebRTC ផ្ទាល់)' : 'Connected — Live P2P';
   };
 
-  const showRemoteVideo = callType === 'video' && !isVideoOff && hasRemoteStream && callStatus === 'connected';
+  const showRemoteVideo = callType === 'video' && hasRemoteStream && callStatus === 'connected';
 
   return (
     <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-md animate-in fade-in duration-200">
@@ -447,9 +504,21 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
         <div className="relative flex-1 flex items-center justify-center overflow-hidden bg-slate-900">
           <div className="absolute w-96 h-96 bg-blue-600/15 rounded-full blur-3xl pointer-events-none" />
 
-          {showRemoteVideo ? (
-            <video ref={remoteVideoRef} autoPlay playsInline className="relative w-full h-full object-cover z-10" />
-          ) : (
+          {/* Remote Video Sink - Always Mounted in DOM to Guarantee Stream Attachment */}
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            className={`absolute inset-0 w-full h-full object-cover z-10 transition-opacity duration-300 ${
+              showRemoteVideo ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
+          />
+
+          {/* Audio Sink */}
+          <audio ref={remoteAudioRef} autoPlay />
+
+          {/* Fallback Display with Avatar when remote video is not active / during ringing */}
+          {!showRemoteVideo && (
             <div className="flex flex-col items-center justify-center p-6 text-center z-10 space-y-5">
               <div className="relative">
                 <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-blue-500 shadow-2xl overflow-hidden relative z-10 bg-slate-800">
