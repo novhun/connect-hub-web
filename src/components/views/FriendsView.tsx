@@ -12,7 +12,7 @@ interface FriendsViewProps {
 type Tab = 'friends' | 'requests' | 'suggestions';
 
 export const FriendsView: React.FC<FriendsViewProps> = ({ onViewProfile }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [tab, setTab] = useState<Tab>('friends');
   const [isLoading, setIsLoading] = useState(true);
   const [friends, setFriends] = useState<User[]>([]);
@@ -166,13 +166,21 @@ export const FriendsView: React.FC<FriendsViewProps> = ({ onViewProfile }) => {
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {friends.map((user) => (
-                    <div key={user.id} className="p-3 rounded-xl border border-gray-200 flex items-center gap-3">
-                      <img
-                        src={api.getMediaUrl(user.avatar)}
-                        alt={user.name}
-                        onClick={() => onViewProfile(user.id)}
-                        className="w-11 h-11 rounded-full object-cover border border-gray-200 shrink-0 cursor-pointer"
-                      />
+                    <div key={user.id} className="p-3 rounded-xl border border-gray-200 flex items-center gap-3 hover:border-gray-300 transition-colors">
+                      <div className="relative shrink-0">
+                        <img
+                          src={api.getMediaUrl(user.avatar)}
+                          alt={user.name}
+                          onClick={() => onViewProfile(user.id)}
+                          className="w-11 h-11 rounded-full object-cover border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                        />
+                        <div
+                          className={`absolute bottom-0 right-0 w-3.5 h-3.5 border-2 border-white rounded-full ${
+                            user.isOnline ? 'bg-emerald-500 ring-1 ring-emerald-300/40' : 'bg-gray-300'
+                          }`}
+                          title={user.isOnline ? (language === 'km' ? 'សកម្ម' : 'Online') : (language === 'km' ? 'អសកម្ម' : 'Offline')}
+                        />
+                      </div>
                       <div className="min-w-0 flex-1">
                         <h4
                           onClick={() => onViewProfile(user.id)}
@@ -180,7 +188,26 @@ export const FriendsView: React.FC<FriendsViewProps> = ({ onViewProfile }) => {
                         >
                           {user.name}
                         </h4>
-                        <span className="text-xs text-gray-400 truncate block">{user.role}</span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span
+                            className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
+                              user.isOnline ? 'text-emerald-600' : 'text-gray-400'
+                            }`}
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                user.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'
+                              }`}
+                            />
+                            <span>
+                              {user.isOnline
+                                ? (language === 'km' ? 'សកម្ម' : 'Online')
+                                : (language === 'km' ? 'អសកម្ម' : 'Offline')}
+                            </span>
+                          </span>
+                          {user.role && <span className="text-xs text-gray-300">•</span>}
+                          {user.role && <span className="text-xs text-gray-400 truncate">{user.role}</span>}
+                        </div>
                       </div>
                       <button
                         onClick={() => handleUnfriend(user)}

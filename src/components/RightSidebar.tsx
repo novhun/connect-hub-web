@@ -181,12 +181,18 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
 
         <hr className="border-gray-100" />
 
-        {/* BEGIN: Online Members */}
+        {/* BEGIN: Online Members / Contacts */}
         <div id="online-members">
           <div className="flex items-center justify-between mb-3 px-1">
-            <h3 className="text-sm font-bold text-gray-900 tracking-tight">
-              {t('sidebar.onlineFriends')}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-gray-900 tracking-tight">
+                {language === 'km' ? 'ទំនាក់ទំនង' : 'Contacts'}
+              </h3>
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>{onlineMembers.filter((m) => m.isOnline).length} {language === 'km' ? 'សកម្ម' : 'Online'}</span>
+              </span>
+            </div>
             {onlineMembers.length > 0 && (
               <button
                 onClick={() => handleUserChat(onlineMembers[0])}
@@ -198,50 +204,95 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
           </div>
 
           <div className="space-y-1">
-            {onlineMembers.map((member) => (
-              <div
-                key={member.id}
-                onClick={() => handleUserChat(member)}
-                className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-xl -mx-2 cursor-pointer transition-colors group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <img
-                      src={api.getMediaUrl(member.avatar)}
-                      alt={member.name}
+            {onlineMembers
+              .slice()
+              .sort((a, b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0))
+              .map((member) => (
+                <div
+                  key={member.id}
+                  onClick={() => handleUserChat(member)}
+                  className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-xl -mx-2 cursor-pointer transition-colors group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="relative shrink-0">
+                      <img
+                        src={api.getMediaUrl(member.avatar)}
+                        alt={member.name}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onViewProfile?.(member.id);
+                        }}
+                        className="w-9 h-9 rounded-full object-cover border border-gray-200"
+                      />
+                      {member.isOnline ? (
+                        <div
+                          className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full shadow-xs ring-1 ring-emerald-300/40"
+                          title={language === 'km' ? 'សកម្ម (Online)' : 'Active now'}
+                        />
+                      ) : (
+                        <div
+                          className="absolute bottom-0 right-0 w-3 h-3 bg-gray-300 border-2 border-white rounded-full shadow-xs"
+                          title={language === 'km' ? 'អសកម្ម (Offline)' : 'Offline'}
+                        />
+                      )}
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-sm font-semibold text-gray-800 group-hover:text-blue-600 transition-colors truncate">
+                        {member.name}
+                      </span>
+                      <span className={`text-[11px] truncate ${member.isOnline ? 'text-emerald-600 font-medium' : 'text-gray-400'}`}>
+                        {member.isOnline
+                          ? (language === 'km' ? 'សកម្មឥឡូវនេះ' : 'Active now')
+                          : (language === 'km' ? 'ក្រៅបណ្ដាញ' : 'Offline')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {onStartCall && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onStartCall(member, 'audio');
+                        }}
+                        className="text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer"
+                        title={language === 'km' ? 'ហៅជាសំឡេង' : 'Audio call'}
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {onStartCall && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onStartCall(member, 'video');
+                        }}
+                        className="text-gray-400 hover:text-blue-600 hover:bg-blue-50 w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer"
+                        title={language === 'km' ? 'ហៅជាវីដេអូ' : 'Video call'}
+                      >
+                        <Video className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         onViewProfile?.(member.id);
                       }}
-                      className="w-8 h-8 rounded-full object-cover border border-gray-200"
-                    />
-                    {member.isOnline && (
-                      <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
-                    )}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium text-gray-800 group-hover:text-blue-600 transition-colors">
-                      {member.name}
-                    </span>
+                      className="text-gray-400 hover:text-gray-700 hover:bg-gray-200 w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer"
+                      aria-label="View profile"
+                      title={language === 'km' ? 'មើលគណនី' : 'View profile'}
+                    >
+                      <MoreHorizontal className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onViewProfile?.(member.id);
-                  }}
-                  className="text-gray-400 opacity-0 group-hover:opacity-100 hover:bg-gray-200 w-6 h-6 rounded-full flex items-center justify-center transition-all"
-                  aria-label="View profile"
-                  title="View profile"
-                >
-                  <MoreHorizontal className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
+              ))}
           </div>
         </div>
-        {/* END: Online Members */}
+        {/* END: Online Members / Contacts */}
       </div>
     </aside>
   );

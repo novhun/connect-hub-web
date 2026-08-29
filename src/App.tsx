@@ -437,7 +437,7 @@ export default function App() {
     setIncomingCall(null);
   };
 
-  // Listen for incoming call invites app-wide, regardless of which tab/modal is open.
+  // Listen for incoming call invites & user presence sync app-wide
   useEffect(() => {
     const unsubscribe = realtime.subscribe((msg: RealtimeMessage) => {
       if (msg.type === 'CALL_INVITE') {
@@ -456,6 +456,20 @@ export default function App() {
       } else if (msg.type === 'CALL_END') {
         // Caller hung up/cancelled while we were still looking at the ringing prompt.
         setIncomingCall((prev) => (prev && prev.roomId === msg.roomId ? null : prev));
+      } else if (msg.type === 'PRESENCE_SYNC' && Array.isArray(msg.onlineUserIds)) {
+        const onlineSet = new Set<string>(msg.onlineUserIds);
+        setOnlineMembers((prev) =>
+          prev.map((u) => ({
+            ...u,
+            isOnline: onlineSet.has(u.id),
+          }))
+        );
+      } else if (msg.type === 'USER_PRESENCE' && msg.userId) {
+        const targetId = msg.userId;
+        const isOnline = Boolean(msg.isOnline);
+        setOnlineMembers((prev) =>
+          prev.map((u) => (u.id === targetId ? { ...u, isOnline } : u))
+        );
       }
     });
     return unsubscribe;

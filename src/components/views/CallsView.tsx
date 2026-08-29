@@ -95,7 +95,7 @@ export const CallsView: React.FC<CallsViewProps> = ({
           </h2>
           {friends.length > 0 && (
             <span className="text-xs font-semibold text-gray-500">
-              {friends.filter((f) => f.isOnline).length} {t('calls.online')} / {friends.length} {t('friends.allFriends')}
+              {friends.filter((f) => f.isOnline).length} {language === 'km' ? 'សកម្ម' : 'Online'} / {friends.length} {language === 'km' ? 'មិត្តភក្តិ' : 'Friends'}
             </span>
           )}
         </div>
@@ -111,26 +111,27 @@ export const CallsView: React.FC<CallsViewProps> = ({
             <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
               <Users className="w-6 h-6" />
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-gray-900">{t('calls.noFriendsTitle')}</h3>
-              <p className="text-xs text-gray-500 max-w-md mx-auto mt-1">
-                {t('calls.noFriendsDesc')}
-              </p>
-            </div>
-            <button
-              onClick={() => onNavigate?.('friends')}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>{t('calls.findFriends')}</span>
-            </button>
+            <p className="text-xs text-gray-500 max-w-sm mx-auto">
+              {language === 'km'
+                ? 'មិនទាន់មានមិត្តភក្តិសម្រាប់ការហៅទូរស័ព្ទទេ។ សូមស្វែងរកនិងបន្ថែមមិត្តភក្តិជាមុនសិន!'
+                : 'No friends to call yet. Connect and add friends to start audio or video calls!'}
+            </p>
+            {onNavigate && (
+              <button
+                type="button"
+                onClick={() => onNavigate('friends')}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                {language === 'km' ? 'ស្វែងរកមិត្តភក្តិ' : 'Find Friends'}
+              </button>
+            )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {sortedFriends.map((member) => (
               <div
                 key={member.id}
-                className="p-3.5 rounded-xl border border-gray-200 flex items-center justify-between bg-gray-50/60 hover:bg-white hover:shadow-xs transition-all"
+                className="p-3 bg-gray-50/70 hover:bg-gray-100/70 rounded-xl border border-gray-200/80 flex items-center justify-between transition-colors"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="relative shrink-0">
@@ -141,7 +142,7 @@ export const CallsView: React.FC<CallsViewProps> = ({
                     />
                     <span
                       className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
-                        member.isOnline ? 'bg-emerald-500' : 'bg-gray-300'
+                        member.isOnline ? 'bg-emerald-500 ring-1 ring-emerald-300/40' : 'bg-gray-300'
                       }`}
                     />
                   </div>
@@ -152,7 +153,9 @@ export const CallsView: React.FC<CallsViewProps> = ({
                         member.isOnline ? 'text-emerald-600' : 'text-gray-400'
                       }`}
                     >
-                      {member.isOnline ? t('calls.available') : t('calls.offline')}
+                      {member.isOnline
+                        ? (language === 'km' ? 'សកម្ម (Online)' : 'Online')
+                        : (language === 'km' ? 'អសកម្ម (Offline)' : 'Offline')}
                     </span>
                   </div>
                 </div>

@@ -660,14 +660,14 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                   />
                   <span
                     className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
-                      selectedUser.isOnline ? 'bg-green-500' : 'bg-gray-300'
+                      selectedUser.isOnline ? 'bg-emerald-500 ring-1 ring-emerald-300/40' : 'bg-gray-300'
                     }`}
                   />
                 </div>
                 <div className="truncate">
                   <h3 className="font-bold text-xs sm:text-sm text-gray-900 truncate">{selectedUser.name}</h3>
-                  <p className="text-[11px] text-green-600 font-medium">
-                    {selectedUser.isOnline ? t('messages.activeNow') : (language === 'km' ? 'ក្រៅបណ្តាញ' : 'Offline')}
+                  <p className={`text-[11px] font-medium ${selectedUser.isOnline ? 'text-emerald-600' : 'text-gray-400'}`}>
+                    {selectedUser.isOnline ? (language === 'km' ? 'សកម្មឥឡូវនេះ' : 'Active now') : (language === 'km' ? 'ក្រៅបណ្ដាញ' : 'Offline')}
                   </p>
                 </div>
               </div>

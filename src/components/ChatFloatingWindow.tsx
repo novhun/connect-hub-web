@@ -95,13 +95,19 @@ export const ChatFloatingWindow: React.FC<ChatFloatingWindowProps> = ({
               alt={recipient.name}
               className="w-8 h-8 rounded-full object-cover border border-gray-200"
             />
-            {recipient.isOnline && (
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white" />
+            {recipient.isOnline ? (
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white ring-1 ring-emerald-300/40" />
+            ) : (
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-gray-300 rounded-full border-2 border-white" />
             )}
           </div>
           <div>
             <h4 className="text-xs font-bold text-gray-900 leading-tight">{recipient.name}</h4>
-            <span className="text-[10px] text-green-600 font-medium">{language === 'km' ? 'កំពុងដំណើរការ' : 'Active now'}</span>
+            <span className={`text-[10px] font-medium ${recipient.isOnline ? 'text-emerald-600' : 'text-gray-400'}`}>
+              {recipient.isOnline
+                ? (language === 'km' ? 'សកម្មឥឡូវនេះ' : 'Active now')
+                : (language === 'km' ? 'ក្រៅបណ្ដាញ' : 'Offline')}
+            </span>
           </div>
         </div>
 

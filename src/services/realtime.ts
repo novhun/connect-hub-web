@@ -13,7 +13,9 @@ class RealtimeService {
   private userId: string | null = null;
   private listeners = new Set<Handler>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private pingTimer: ReturnType<typeof setInterval> | null = null;
   private manuallyClosed = false;
+  private onlineUsers = new Set<string>();
 
   connect(userId: string) {
     if (this.ws && this.userId === userId && this.ws.readyState <= WebSocket.OPEN) {
@@ -25,15 +27,45 @@ class RealtimeService {
     this.open();
   }
 
+  isUserOnline(targetUserId: string): boolean {
+    return this.onlineUsers.has(targetUserId);
+  }
+
+  getOnlineUserIds(): string[] {
+    return Array.from(this.onlineUsers);
+  }
+
   private open() {
     if (!this.userId) return;
     try {
       const ws = new WebSocket(api.getChatWebSocketUrl(this.userId));
       this.ws = ws;
 
+      ws.onopen = () => {
+        // Start heartbeat ping every 25s to keep presence active
+        if (this.pingTimer) clearInterval(this.pingTimer);
+        this.pingTimer = setInterval(() => {
+          if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({ type: 'PING' }));
+          }
+        }, 25000);
+      };
+
       ws.onmessage = (event) => {
         try {
           const payload = JSON.parse(event.data);
+
+          // Internal presence state updates
+          if (payload.type === 'PRESENCE_SYNC' && Array.isArray(payload.onlineUserIds)) {
+            this.onlineUsers = new Set(payload.onlineUserIds);
+          } else if (payload.type === 'USER_PRESENCE' && payload.userId) {
+            if (payload.isOnline) {
+              this.onlineUsers.add(payload.userId);
+            } else {
+              this.onlineUsers.delete(payload.userId);
+            }
+          }
+
           this.listeners.forEach((handler) => handler(payload));
         } catch (e) {
           console.warn('Realtime message parse notice:', e);

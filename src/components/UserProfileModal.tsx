@@ -267,6 +267,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   alt={profileUser.name}
                   className="w-20 h-20 sm:w-28 sm:h-28 rounded-full border-4 border-white shadow-xl object-cover bg-white"
                 />
+                {!isOwnProfile && (
+                  <div
+                    className={`absolute bottom-0 right-0 sm:bottom-1 sm:right-1 w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 border-white shadow-xs ${
+                      profileUser.isOnline ? 'bg-emerald-500 ring-2 ring-emerald-300/50' : 'bg-gray-300'
+                    }`}
+                    title={profileUser.isOnline ? (language === 'km' ? 'សកម្ម (Online)' : 'Online') : (language === 'km' ? 'អសកម្ម (Offline)' : 'Offline')}
+                  />
+                )}
                 {isOwnProfile && (
                   <button
                     onClick={() => setIsFullEditModalOpen(true)}
@@ -301,13 +309,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       <>
                         <button
                           onClick={() => onStartCall(profileUser, 'audio')}
-                          className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                          className="px-3 sm:px-4 py-1.5 sm:py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer border border-emerald-200"
+                          title={language === 'km' ? 'ហៅជាសំឡេង' : 'Audio call'}
                         >
                           <Phone className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => onStartCall(profileUser, 'video')}
-                          className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                          className="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer border border-blue-200"
+                          title={language === 'km' ? 'ហៅជាវីដេអូ' : 'Video call'}
                         >
                           <Video className="w-3.5 h-3.5" />
                         </button>
@@ -320,10 +330,30 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </div>
 
             <h2 className="text-lg sm:text-xl font-bold text-gray-900">{profileUser.name}</h2>
-            <p className="text-xs text-gray-500 font-medium">
-              {profileUser.role || (language === 'km' ? 'សមាជិក' : 'Member')}
-              {profileUser.isOnline ? ` • ${language === 'km' ? 'កំពុងអនឡាញ' : 'Online now'}` : ''}
-            </p>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <span className="text-xs text-gray-500 font-medium">
+                {profileUser.role || (language === 'km' ? 'សមាជិក' : 'Member')}
+              </span>
+              <span className="text-gray-300">•</span>
+              <span
+                className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                  profileUser.isOnline
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs'
+                    : 'bg-gray-100 text-gray-600 border border-gray-200'
+                }`}
+              >
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    profileUser.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'
+                  }`}
+                />
+                <span>
+                  {profileUser.isOnline
+                    ? (language === 'km' ? 'សកម្ម (Online)' : 'Online')
+                    : (language === 'km' ? 'អសកម្ម (Offline)' : 'Offline')}
+                </span>
+              </span>
+            </div>
 
             {/* Bio text */}
             <div className="mt-2.5 sm:mt-3">
