@@ -3,6 +3,7 @@ import { X, Mail, Lock, LogIn, Loader2, Sparkles } from 'lucide-react';
 import { authApi } from '../api';
 import { User } from '../../../types';
 import { useLanguage } from '../../../context/LanguageContext';
+import { triggerRealGoogleLogin } from '../../../services/googleAuth';
 import appLogo from '../../../../src/assets/icons/icon.png';
 
 interface LoginModalProps {
@@ -47,17 +48,18 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     setError(null);
     setGoogleLoading(true);
     try {
-      // Send Google OAuth token or demo token to backend API
-      const res = await authApi.googleLogin('test-google-token-sokun');
-      onSuccess(res.user);
+      const user = await triggerRealGoogleLogin();
+      onSuccess(user);
       onClose();
     } catch (err: any) {
-      setError(
-        err.message ||
-        (language === 'km'
-          ? 'ការចូលតាម Google បរាជ័យ។'
-          : 'Google Sign-In failed. Please try again.')
-      );
+      if (!err.message?.includes('closed')) {
+        setError(
+          err.message ||
+          (language === 'km'
+            ? 'ការចូលតាម Google បរាជ័យ។ សូមព្យាយាមម្តងទៀត។'
+            : 'Google Sign-In failed. Please try again.')
+        );
+      }
     } finally {
       setGoogleLoading(false);
     }

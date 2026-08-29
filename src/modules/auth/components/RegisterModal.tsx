@@ -3,6 +3,7 @@ import { X, Mail, Lock, User as UserIcon, UserPlus, Loader2, Sparkles, Briefcase
 import { authApi } from '../api';
 import { User } from '../../../types';
 import { useLanguage } from '../../../context/LanguageContext';
+import { triggerRealGoogleLogin } from '../../../services/googleAuth';
 import appLogo from '../../../../src/assets/icons/icon.png';
 
 interface RegisterModalProps {
@@ -54,16 +55,18 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
     setError(null);
     setGoogleLoading(true);
     try {
-      const res = await authApi.googleLogin(`test-google-token-${Date.now()}`);
-      onSuccess(res.user);
+      const user = await triggerRealGoogleLogin();
+      onSuccess(user);
       onClose();
     } catch (err: any) {
-      setError(
-        err.message ||
-          (language === 'km'
-            ? 'ការចុះឈ្មោះតាម Google បរាជ័យ។'
-            : 'Google Sign-Up failed. Please try again.')
-      );
+      if (!err.message?.includes('closed')) {
+        setError(
+          err.message ||
+            (language === 'km'
+              ? 'ការចុះឈ្មោះតាម Google បរាជ័យ។ សូមព្យាយាមម្តងទៀត។'
+              : 'Google Sign-Up failed. Please try again.')
+        );
+      }
     } finally {
       setGoogleLoading(false);
     }
