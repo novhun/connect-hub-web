@@ -18,7 +18,11 @@ import {
   Loader2,
   ChevronUp,
   ChevronDown,
-  Film
+  Film,
+  Maximize,
+  Minimize,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { User, Post, ReactionType } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
@@ -84,12 +88,92 @@ export const ClipsView: React.FC<ClipsViewProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [clipProgress, setClipProgress] = useState<{ [id: string]: number }>({});
+  const [clipOrientations, setClipOrientations] = useState<{ [id: string]: 'landscape' | 'portrait' | 'square' }>({});
+  const [fitModes, setFitModes] = useState<{ [id: string]: 'contain' | 'cover' | 'rotate' }>({});
   const [activeCommentsClipId, setActiveCommentsClipId] = useState<string | null>(null);
   const [commentInput, setCommentInput] = useState('');
   const [copiedClipId, setCopiedClipId] = useState<string | null>(null);
   const [doubleTapHeart, setDoubleTapHeart] = useState<{ id: string; x: number; y: number } | null>(null);
   const [savedClipIds, setSavedClipIds] = useState<Set<string>>(new Set());
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Fullscreen change detection listener
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isFull = Boolean(document.fullscreenElement);
+      setIsFullscreen(isFull);
+      // Ensure active video continues playing smoothly in fullscreen
+      const activeVideo = videoRefs.current[activeIndex];
+      if (activeVideo) {
+        activeVideo.play().catch(() => {});
+        setIsPlaying(true);
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, [activeIndex]);
+
+  const handleToggleFitMode = (clipId: string, isLandscape: boolean) => {
+    setFitModes((prev) => {
+      const current = prev[clipId] || (isLandscape ? 'contain' : 'cover');
+      let next: 'contain' | 'cover' | 'rotate' = 'contain';
+      if (current === 'contain') next = 'cover';
+      else if (current === 'cover' && isLandscape) next = 'rotate';
+      else next = 'contain';
+      return { ...prev, [clipId]: next };
+    });
+  };
+
+  const handleToggleFullscreen = async (clipIdx: number) => {
+    const video = videoRefs.current[clipIdx];
+    try {
+      if (document.fullscreenElement) {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        }
+      } else {
+        const elem = clipRefs.current[clipIdx] || video || containerRef.current;
+        if (elem) {
+          if (elem.requestFullscreen) {
+            await elem.requestFullscreen();
+          } else if ((elem as any).webkitRequestFullscreen) {
+            await (elem as any).webkitRequestFullscreen();
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Fullscreen request notice:', err);
+    } finally {
+      if (video) {
+        video.play().catch(() => {});
+        setIsPlaying(true);
+      }
+    }
+  };
+
+  // Keyboard shortcut: Press F to toggle full screen
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'f' || e.key === 'F') {
+        if (
+          document.activeElement?.tagName !== 'INPUT' &&
+          document.activeElement?.tagName !== 'TEXTAREA'
+        ) {
+          e.preventDefault();
+          handleToggleFullscreen(activeIndex);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeIndex]);
   
   // Upload modal state
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -216,6 +300,15 @@ export const ClipsView: React.FC<ClipsViewProps> = ({
 
     const observer = new IntersectionObserver(
       (entries) => {
+        // In fullscreen mode, keep the active video playing without observer interruption
+        if (document.fullscreenElement) {
+          const currentVid = videoRefs.current[activeIndex];
+          if (currentVid && currentVid.paused) {
+            currentVid.play().catch(() => {});
+          }
+          return;
+        }
+
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             const indexStr = entry.target.getAttribute('data-index');
@@ -593,6 +686,9 @@ export const ClipsView: React.FC<ClipsViewProps> = ({
                 savedClipIds.has(clip.id) ||
                 (clip.postId ? savedClipIds.has(clip.postId) : false) ||
                 Boolean(clip.isSaved);
+              const orientation = clipOrientations[clip.id] || 'portrait';
+              const isLandscape = orientation === 'landscape';
+              const currentFit = fitModes[clip.id] || (isLandscape ? 'contain' : 'cover');
 
               return (
                 <div
@@ -603,10 +699,23 @@ export const ClipsView: React.FC<ClipsViewProps> = ({
                 >
                   {/* Video Playback Container */}
                   <div
-                    className="absolute inset-0 bg-black flex items-center justify-center cursor-pointer"
+                    className="absolute inset-0 bg-black flex items-center justify-center cursor-pointer overflow-hidden"
                     onClick={togglePlay}
                     onDoubleClick={(e) => handleDoubleTap(e, clip)}
                   >
+                    {/* 1. Ambient Blurred Backdrop for Landscape / Widescreen Videos */}
+                    {isLandscape && (
+                      <video
+                        src={api.getMediaUrl(clip.videoUrl)}
+                        muted
+                        playsInline
+                        loop
+                        aria-hidden="true"
+                        className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-40 scale-125 pointer-events-none transition-opacity duration-300"
+                      />
+                    )}
+
+                    {/* 2. Main High-Definition Video */}
                     <video
                       ref={(el) => (videoRefs.current[idx] = el)}
                       src={api.getMediaUrl(clip.videoUrl)}
@@ -615,7 +724,26 @@ export const ClipsView: React.FC<ClipsViewProps> = ({
                       muted={isMuted}
                       preload={idx <= 2 ? 'auto' : 'metadata'}
                       onTimeUpdate={() => handleVideoTimeUpdate(idx, clip.id)}
-                      className="w-full h-full object-cover sm:object-contain bg-black"
+                      onLoadedMetadata={(e) => {
+                        const v = e.currentTarget;
+                        if (v.videoWidth && v.videoHeight) {
+                          const isLand = v.videoWidth > v.videoHeight * 1.15;
+                          const isSq = !isLand && Math.abs(v.videoWidth - v.videoHeight) <= 60;
+                          setClipOrientations((prev) => ({
+                            ...prev,
+                            [clip.id]: isLand ? 'landscape' : isSq ? 'square' : 'portrait',
+                          }));
+                        }
+                      }}
+                      className={`relative z-10 transition-all duration-300 ${
+                        currentFit === 'rotate'
+                          ? 'w-[100vh] max-w-none h-[100vw] max-h-none rotate-90 object-contain'
+                          : currentFit === 'cover'
+                          ? 'w-full h-full object-cover'
+                          : isLandscape
+                          ? 'w-full h-auto max-h-[85vh] object-contain my-auto drop-shadow-2xl'
+                          : 'w-full h-full object-contain sm:object-contain bg-black'
+                      }`}
                     />
 
                     {/* Double tap heart explosion animation */}
@@ -641,29 +769,71 @@ export const ClipsView: React.FC<ClipsViewProps> = ({
                     <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent via-50% to-black/95 pointer-events-none z-10" />
                   </div>
 
-                  {/* Top Header Bar inside Video Slide */}
+                  {/* Top Header Bar inside Video Slide - Sleek, Compact & Beautiful */}
                   <div className="absolute top-0 left-0 right-0 z-20 p-3 sm:p-4 flex items-center justify-between pointer-events-none">
+                    {/* Left: Compact Glass Pill with category & index */}
                     <div className="flex items-center gap-2 pointer-events-auto">
-                      <span className="px-3 py-1 rounded-full bg-black/50 backdrop-blur-md text-white text-[11px] font-bold flex items-center gap-1.5 border border-white/15 shadow-sm">
-                        <Flame className="w-3.5 h-3.5 text-rose-400" />
-                        <span>{clip.postId ? (language === 'km' ? 'វីដេអូការបង្ហោះ' : 'Post Video') : 'Clips'}</span>
-                      </span>
-                      <span className="text-[11px] font-semibold text-white/80 bg-black/50 px-2.5 py-1 rounded-full backdrop-blur-md border border-white/10">
-                        {idx + 1} / {allClips.length}
-                      </span>
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/50 hover:bg-black/65 backdrop-blur-md text-white text-xs font-bold border border-white/15 shadow-sm transition-all">
+                        <Flame className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                        <span>{clip.postId ? (language === 'km' ? 'វីដេអូ' : 'Post Video') : 'Clips'}</span>
+                        <span className="text-white/40 font-normal">•</span>
+                        <span className="text-[11px] font-semibold text-white/80">{idx + 1}/{allClips.length}</span>
+                      </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsMuted(!isMuted);
-                      }}
-                      className="w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-md text-white flex items-center justify-center border border-white/20 transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-md pointer-events-auto"
-                      title={isMuted ? 'Unmute' : 'Mute'}
-                    >
-                      {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                    </button>
+                    {/* Right: Sleek Circular Action Buttons */}
+                    <div className="flex items-center gap-2 pointer-events-auto">
+                      {/* Fit / Fill Mode Toggle */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleFitMode(clip.id, isLandscape);
+                        }}
+                        className="w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-md text-white flex items-center justify-center border border-white/15 transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-md group"
+                        title={currentFit === 'cover' ? (language === 'km' ? 'ពង្រីកពេញ' : 'Zoom Fill') : (language === 'km' ? 'ទំហំដើម' : 'Fit to Screen')}
+                      >
+                        {currentFit === 'cover' ? (
+                          <Maximize2 className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform" />
+                        ) : (
+                          <Minimize2 className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+                        )}
+                      </button>
+
+                      {/* Full Screen Toggle */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleFullscreen(idx);
+                        }}
+                        className="w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-md text-white flex items-center justify-center border border-white/15 transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-md group"
+                        title={isFullscreen ? (language === 'km' ? 'បិទពេញអេក្រង់ (F)' : 'Exit Fullscreen (F)') : (language === 'km' ? 'ពេញអេក្រង់ (F)' : 'Full Screen (F)')}
+                      >
+                        {isFullscreen ? (
+                          <Minimize className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
+                        ) : (
+                          <Maximize className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
+                        )}
+                      </button>
+
+                      {/* Mute / Unmute Toggle */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsMuted(!isMuted);
+                        }}
+                        className="w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-md text-white flex items-center justify-center border border-white/15 transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-md group"
+                        title={isMuted ? (language === 'km' ? 'បើកសំឡេង' : 'Unmute') : (language === 'km' ? 'បិទសំឡេង' : 'Mute')}
+                      >
+                        {isMuted ? (
+                          <VolumeX className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform" />
+                        ) : (
+                          <Volume2 className="w-4 h-4 text-white group-hover:scale-110 transition-transform" />
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Vertical Social Action Buttons (Right side) */}
