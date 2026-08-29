@@ -12,6 +12,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
 
 interface RightSidebarProps {
+  activeTab?: string;
   managedGroups?: Group[];
   onlineMembers?: User[];
   onStartAudioCall?: () => void;
@@ -27,6 +28,7 @@ interface RightSidebarProps {
 }
 
 export const RightSidebar: React.FC<RightSidebarProps> = ({
+  activeTab = 'home',
   managedGroups = [],
   onlineMembers = [],
   onStartAudioCall,
@@ -61,8 +63,11 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   };
 
   const handleUserChat = (user: User) => {
-    if (onOpenChat) onOpenChat(user);
-    else if (onOpenDirectChat) onOpenDirectChat(user);
+    if (onOpenDirectChat) {
+      onOpenDirectChat(user);
+    } else if (onOpenChat) {
+      onOpenChat(user);
+    }
   };
 
   return (
@@ -71,59 +76,61 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
       className="hidden xl:flex w-80 bg-white border-l border-gray-200 flex-col shrink-0 overflow-y-auto"
     >
       <div className="p-4 space-y-6">
-        {/* BEGIN: Support Center Widget */}
-        <div
-          id="support-widget"
-          className="bg-[#eff6ff] rounded-2xl p-5 border border-blue-100/80 shadow-xs"
-        >
-          <div className="text-center mb-4">
-            <h3 className="font-bold text-gray-900 text-base mb-0.5 tracking-tight">
-              {t('sidebar.supportCenter')}
-            </h3>
-            <p className="text-xs text-gray-500 font-medium">
-              {language === 'km' ? 'យើងនៅទីនេះដើម្បីជួយអ្នក' : "We're here to help you"}
+        {/* BEGIN: Support Center Widget (Visible ONLY on About / Support page) */}
+        {activeTab === 'about' && (
+          <div
+            id="support-widget"
+            className="bg-[#eff6ff] rounded-2xl p-5 border border-blue-100/80 shadow-xs"
+          >
+            <div className="text-center mb-4">
+              <h3 className="font-bold text-gray-900 text-base mb-0.5 tracking-tight">
+                {t('sidebar.supportCenter')}
+              </h3>
+              <p className="text-xs text-gray-500 font-medium">
+                {language === 'km' ? 'យើងនៅទីនេះដើម្បីជួយអ្នក' : "We're here to help you"}
+              </p>
+            </div>
+
+            {/* Support Illustration Box */}
+            <div className="flex justify-center mb-4">
+              <div className="w-32 h-24 bg-[#dbeafe] rounded-2xl relative overflow-hidden flex items-center justify-center shadow-inner">
+                <Headphones className="w-11 h-11 text-[#60a5fa]" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                id="support-audio-call-btn"
+                onClick={handleAudioCall}
+                className="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 border border-gray-200 text-[#2563eb] font-semibold py-2 rounded-xl transition-all shadow-xs text-sm active:scale-[0.99] cursor-pointer"
+              >
+                <Phone className="w-4 h-4 text-green-500 fill-green-500" />
+                <span>{t('sidebar.startAudioCall')}</span>
+              </button>
+              <button
+                id="support-video-call-btn"
+                onClick={handleVideoCall}
+                className="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 border border-gray-200 text-[#2563eb] font-semibold py-2 rounded-xl transition-all shadow-xs text-sm active:scale-[0.99] cursor-pointer"
+              >
+                <Video className="w-4 h-4 text-blue-500 fill-blue-500" />
+                <span>{t('sidebar.startVideoCall')}</span>
+              </button>
+              <button
+                id="support-live-chat-btn"
+                onClick={handleLiveChat}
+                className="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 border border-gray-200 text-[#2563eb] font-semibold py-2 rounded-xl transition-all shadow-xs text-sm active:scale-[0.99] cursor-pointer"
+              >
+                <MessageSquare className="w-4 h-4 text-indigo-500 fill-indigo-500" />
+                <span>{t('sidebar.liveChat')}</span>
+              </button>
+            </div>
+
+            <p className="text-[11px] text-center text-gray-400 mt-3 font-medium">
+              {language === 'km' ? 'ពេលវេលាឆ្លើយតបជាមធ្យម៖ ' : 'Average response time: '}
+              <span className="text-[#2563eb] font-semibold">2m</span>
             </p>
           </div>
-
-          {/* Support Illustration Box */}
-          <div className="flex justify-center mb-4">
-            <div className="w-32 h-24 bg-[#dbeafe] rounded-2xl relative overflow-hidden flex items-center justify-center shadow-inner">
-              <Headphones className="w-11 h-11 text-[#60a5fa]" />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <button
-              id="support-audio-call-btn"
-              onClick={handleAudioCall}
-              className="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 border border-gray-200 text-[#2563eb] font-semibold py-2 rounded-xl transition-all shadow-xs text-sm active:scale-[0.99] cursor-pointer"
-            >
-              <Phone className="w-4 h-4 text-green-500 fill-green-500" />
-              <span>{t('sidebar.startAudioCall')}</span>
-            </button>
-            <button
-              id="support-video-call-btn"
-              onClick={handleVideoCall}
-              className="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 border border-gray-200 text-[#2563eb] font-semibold py-2 rounded-xl transition-all shadow-xs text-sm active:scale-[0.99] cursor-pointer"
-            >
-              <Video className="w-4 h-4 text-blue-500 fill-blue-500" />
-              <span>{t('sidebar.startVideoCall')}</span>
-            </button>
-            <button
-              id="support-live-chat-btn"
-              onClick={handleLiveChat}
-              className="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 border border-gray-200 text-[#2563eb] font-semibold py-2 rounded-xl transition-all shadow-xs text-sm active:scale-[0.99] cursor-pointer"
-            >
-              <MessageSquare className="w-4 h-4 text-indigo-500 fill-indigo-500" />
-              <span>{t('sidebar.liveChat')}</span>
-            </button>
-          </div>
-
-          <p className="text-[11px] text-center text-gray-400 mt-3 font-medium">
-            {language === 'km' ? 'ពេលវេលាឆ្លើយតបជាមធ្យម៖ ' : 'Average response time: '}
-            <span className="text-[#2563eb] font-semibold">2m</span>
-          </p>
-        </div>
+        )}
         {/* END: Support Center Widget */}
 
         {/* BEGIN: Groups You Manage */}

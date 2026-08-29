@@ -82,3 +82,105 @@ body.font-khmer,
     position: relative;
   }
 }
+
+/* ==============================================================================
+   DARK MODE COLOR TOKENS & SYSTEM OVERRIDES
+   ============================================================================== */
+html.dark,
+html.dark body {
+  background-color: #0b0f19 !important;
+  color: #f1f5f9 !important;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Dark Backgrounds */
+.dark #main-feed,
+.dark .bg-\[\#f0f2f5\] {
+  background-color: #0b0f19 !important;
+}
+
+.dark .bg-white {
+  background-color: #161f30 !important;
+  color: #f8fafc !important;
+}
+
+.dark .bg-white\/95,
+.dark .bg-white\/90,
+.dark .bg-white\/80 {
+  background-color: rgba(22, 31, 48, 0.95) !important;
+  color: #f8fafc !important;
+}
+
+.dark .bg-gray-50,
+.dark .bg-gray-50\/70,
+.dark .bg-gray-50\/50,
+.dark .bg-gray-100 {
+  background-color: #1e293b !important;
+}
+
+/* Dark Borders */
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-gray-100\/70,
+.dark .border-gray-200\/70,
+.dark .border-gray-200\/80,
+.dark .border-gray-200\/90 {
+  border-color: #27354a !important;
+}
+
+/* Dark Typography */
+.dark .text-gray-900,
+.dark .text-gray-800 {
+  color: #f8fafc !important;
+}
+
+.dark .text-gray-700,
+.dark .text-gray-600 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-gray-500,
+.dark .text-gray-400 {
+  color: #94a3b8 !important;
+}
+
+/* Interactive Hover States */
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-gray-100:hover,
+.dark .hover\:bg-gray-100\/80:hover {
+  background-color: #223049 !important;
+}
+
+/* Form Controls in Dark Mode */
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark textarea,
+.dark select {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* Dark Modals & Popovers */
+.dark .shadow-xs,
+.dark .shadow-sm,
+.dark .shadow-md,
+.dark .shadow-lg,
+.dark .shadow-xl,
+.dark .shadow-2xl {
+  box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.7), 0 4px 12px -2px rgba(0, 0, 0, 0.5) !important;
+}

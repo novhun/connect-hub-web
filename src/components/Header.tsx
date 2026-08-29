@@ -16,10 +16,13 @@ import {
   Menu,
   Sparkles,
   Smartphone,
-  Download
+  Download,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { User, NotificationItem } from '../types';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 import { api } from '../services/api';
 import appLogo from '../assets/icons/icon.png';
 import { initPwaInstallPrompt, promptPwaInstall } from '../registerServiceWorker';
@@ -70,6 +73,7 @@ export const Header: React.FC<HeaderProps> = ({
   isVisible = true,
 }) => {
   const { language, setLanguage, toggleLanguage, t } = useLanguage();
+  const { isDark, toggleTheme, theme } = useTheme();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [userResults, setUserResults] = useState<User[]>([]);
@@ -275,6 +279,21 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
 
+        {/* Dark / Light Mode Quick Toggle Button */}
+        <button
+          id="header-theme-toggle-btn"
+          onClick={toggleTheme}
+          aria-label={t('header.toggleTheme') || 'Toggle Dark/Light Mode'}
+          title={isDark ? (language === 'km' ? 'ប្តូរទៅរបៀបពន្លឺ (Light)' : 'Switch to Light Mode') : (language === 'km' ? 'ប្តូរទៅរបៀបងងឹត (Dark)' : 'Switch to Dark Mode')}
+          className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-all cursor-pointer border border-gray-200 shadow-2xs hover:scale-105 active:scale-95 shrink-0"
+        >
+          {isDark ? (
+            <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 animate-in zoom-in duration-200" />
+          ) : (
+            <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 animate-in zoom-in duration-200" />
+          )}
+        </button>
+
         {/* Live API Status Chip (Desktop) */}
         <button
           onClick={() => setActiveTab('about')}
@@ -420,6 +439,26 @@ export const Header: React.FC<HeaderProps> = ({
                   >
                     <Settings className="w-4 h-4 text-gray-500" />
                     <span>{t('header.settings')}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      toggleTheme();
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      {isDark ? (
+                        <Sun className="w-4 h-4 text-amber-400" />
+                      ) : (
+                        <Moon className="w-4 h-4 text-indigo-500" />
+                      )}
+                      <span>{t('header.darkMode') || 'Dark Mode'}</span>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      isDark ? 'bg-amber-400/20 text-amber-500' : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {isDark ? (language === 'km' ? 'បើក' : 'ON') : (language === 'km' ? 'បិទ' : 'OFF')}
+                    </span>
                   </button>
                   <button
                     onClick={() => {

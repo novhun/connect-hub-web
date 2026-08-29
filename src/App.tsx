@@ -791,7 +791,7 @@ export default function App() {
   };
 
   return (
-    <div className={`text-gray-800 h-screen flex flex-col overflow-hidden bg-[#f0f2f5] ${language === 'km' ? 'font-khmer' : ''}`}>
+    <div className={`text-gray-800 dark:text-gray-100 h-screen flex flex-col overflow-hidden bg-[#f0f2f5] dark:bg-[#0b0f19] ${language === 'km' ? 'font-khmer' : ''}`}>
       {/* BEGIN: Top Navigation Bar */}
       <Header
         currentUser={currentUser}
@@ -1059,12 +1059,17 @@ export default function App() {
             <AboutView
               currentUser={currentUser}
               onStartDemoCall={(type) => handleStartRealCall(onlineMembers[0] || currentUser, type)}
+              onOpenSupport={(mode) => {
+                if (mode === 'chat') setSupportModalMode('chat');
+                else handleStartRealCall(onlineMembers[0] || currentUser, mode);
+              }}
             />
           )}
         </main>
 
         {/* BEGIN: Right Sidebar */}
         <RightSidebar
+          activeTab={activeTab}
           managedGroups={groups.filter((g) => g.isManaged)}
           onlineMembers={onlineMembers}
           onOpenChat={(user) => setActiveChatUser(user)}
@@ -1276,14 +1281,16 @@ export default function App() {
         />
       )}
 
-      {/* 13. Mobile Floating Support Help Button (Visible on screens < xl) */}
-      <FloatingSupportButton
-        isVisible={isMobileNavVisible}
-        onOpenSupport={(mode) => {
-          if (mode === 'chat') setSupportModalMode('chat');
-          else handleStartRealCall(onlineMembers[0] || currentUser, mode);
-        }}
-      />
+      {/* 13. Mobile Floating Support Help Button (Visible ONLY on About / Support Page) */}
+      {activeTab === 'about' && (
+        <FloatingSupportButton
+          isVisible={isMobileNavVisible}
+          onOpenSupport={(mode) => {
+            if (mode === 'chat') setSupportModalMode('chat');
+            else handleStartRealCall(onlineMembers[0] || currentUser, mode);
+          }}
+        />
+      )}
 
       {/* 14. Mobile Bottom Navigation Bar (Visible on screens < 768px) */}
       <MobileBottomNav

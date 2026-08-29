@@ -20,5 +20,14 @@
   "saving": "Saving...",
   "savedSuccess": "Preferences saved!",
   "languagePreference": "Language Preference",
-  "selectLanguage": "Select display language"
+  "selectLanguage": "Select display language",
+  "appearanceTheme": "Appearance & Theme",
+  "theme": "Interface Theme",
+  "themeDesc": "Select your visual style preference or sync with your system.",
+  "light": "Light",
+  "dark": "Dark",
+  "system": "System Auto",
+  "lightDesc": "Clean white and slate aesthetics",
+  "darkDesc": "Deep dark midnight palette for eye comfort",
+  "systemDesc": "Automatically match OS system preferences"
 }

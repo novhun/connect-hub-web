@@ -1,7 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { Shield, Bell, Globe, Check, Loader2, User as UserIcon, Camera, Image as ImageIcon, Edit3, MapPin, Briefcase, Smartphone, Download } from 'lucide-react';
+import {
+  Shield,
+  Bell,
+  Globe,
+  Check,
+  Loader2,
+  User as UserIcon,
+  Camera,
+  Image as ImageIcon,
+  Edit3,
+  MapPin,
+  Briefcase,
+  Smartphone,
+  Download,
+  Sun,
+  Moon,
+  Monitor,
+  Palette
+} from 'lucide-react';
 import { User } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme, Theme } from '../../context/ThemeContext';
 import { settingsApi } from '../../modules/settings/api';
 import { api } from '../../services/api';
 import { EditProfileModal } from '../EditProfileModal';
@@ -14,6 +33,7 @@ interface SettingsViewProps {
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ currentUser, onUpdateProfile }) => {
   const { language, setLanguage, t } = useLanguage();
+  const { theme, setTheme, isDark } = useTheme();
   const [isLoading, setIsLoading] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [callRingtone, setCallRingtone] = useState(true);
@@ -144,6 +164,85 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ currentUser, onUpdat
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Appearance & Theme Section */}
+      <div className="bg-white rounded-2xl p-5 shadow-xs border border-gray-100 space-y-4">
+        <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+          <Palette className="w-5 h-5 text-blue-600" />
+          <div>
+            <h2 className="font-bold text-gray-900 text-sm">{t('settings.appearanceTheme')}</h2>
+            <p className="text-[11px] text-gray-400">{t('settings.themeDesc')}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Light Mode Card */}
+          <button
+            type="button"
+            onClick={() => setTheme('light')}
+            className={`p-4 rounded-xl border-2 flex flex-col items-start gap-2 text-left transition-all cursor-pointer ${
+              theme === 'light'
+                ? 'border-blue-600 bg-blue-50/50 shadow-xs'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <div className="flex items-center justify-between w-full">
+              <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600">
+                <Sun className="w-4 h-4" />
+              </div>
+              {theme === 'light' && <Check className="w-4 h-4 text-blue-600" />}
+            </div>
+            <div>
+              <span className="text-sm font-bold text-gray-900 block">{t('settings.light')}</span>
+              <span className="text-[11px] text-gray-400 block mt-0.5">{t('settings.lightDesc')}</span>
+            </div>
+          </button>
+
+          {/* Dark Mode Card */}
+          <button
+            type="button"
+            onClick={() => setTheme('dark')}
+            className={`p-4 rounded-xl border-2 flex flex-col items-start gap-2 text-left transition-all cursor-pointer ${
+              theme === 'dark'
+                ? 'border-blue-600 bg-blue-50/50 shadow-xs'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <div className="flex items-center justify-between w-full">
+              <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-950 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                <Moon className="w-4 h-4" />
+              </div>
+              {theme === 'dark' && <Check className="w-4 h-4 text-blue-600" />}
+            </div>
+            <div>
+              <span className="text-sm font-bold text-gray-900 block">{t('settings.dark')}</span>
+              <span className="text-[11px] text-gray-400 block mt-0.5">{t('settings.darkDesc')}</span>
+            </div>
+          </button>
+
+          {/* System Preference Card */}
+          <button
+            type="button"
+            onClick={() => setTheme('system')}
+            className={`p-4 rounded-xl border-2 flex flex-col items-start gap-2 text-left transition-all cursor-pointer ${
+              theme === 'system'
+                ? 'border-blue-600 bg-blue-50/50 shadow-xs'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <div className="flex items-center justify-between w-full">
+              <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-300">
+                <Monitor className="w-4 h-4" />
+              </div>
+              {theme === 'system' && <Check className="w-4 h-4 text-blue-600" />}
+            </div>
+            <div>
+              <span className="text-sm font-bold text-gray-900 block">{t('settings.system')}</span>
+              <span className="text-[11px] text-gray-400 block mt-0.5">{t('settings.systemDesc')}</span>
+            </div>
+          </button>
         </div>
       </div>
 

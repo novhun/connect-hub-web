@@ -15,5 +15,10 @@
   "new": "New",
   "changeLanguage": "Language",
   "english": "English",
-  "khmer": "ភាសាខ្មែរ"
+  "khmer": "ភាសាខ្មែរ",
+  "theme": "Theme",
+  "toggleTheme": "Toggle Dark/Light Mode",
+  "darkMode": "Dark Mode",
+  "lightMode": "Light Mode",
+  "systemMode": "System Auto"
 }

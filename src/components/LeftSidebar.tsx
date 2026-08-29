@@ -17,10 +17,13 @@ import {
   Code2,
   Sparkles,
   UserPlus,
-  X
+  X,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { Group } from '../types';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 
 interface LeftSidebarProps {
   activeTab: string;
@@ -45,7 +48,8 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   isMobileOpen = false,
   onCloseMobile,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const { isDark, toggleTheme } = useTheme();
   const [showMoreShortcuts, setShowMoreShortcuts] = useState(false);
 
   const navItems = [
@@ -202,6 +206,26 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                 <span>{t('sidebar.seeMore')}</span>
               </>
             )}
+          </button>
+        </div>
+
+        {/* Theme Quick Switcher in Sidebar */}
+        <div className="mt-4 p-3 rounded-xl bg-gray-50 dark:bg-slate-800/90 border border-gray-200/70 dark:border-slate-700/60 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {isDark ? (
+              <Sun className="w-4 h-4 text-amber-400" />
+            ) : (
+              <Moon className="w-4 h-4 text-indigo-500" />
+            )}
+            <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
+              {isDark ? (language === 'km' ? 'របៀបងងឹត' : 'Dark Mode') : (language === 'km' ? 'របៀបពន្លឺ' : 'Light Mode')}
+            </span>
+          </div>
+          <button
+            onClick={toggleTheme}
+            className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100 border border-gray-200 dark:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-600 transition-all cursor-pointer shadow-2xs"
+          >
+            {isDark ? '☀️ Light' : '🌙 Dark'}
           </button>
         </div>
       </div>

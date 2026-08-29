@@ -15,5 +15,10 @@
   "new": "ថ្មី",
   "changeLanguage": "ភាសា",
   "english": "English",
-  "khmer": "ភាសាខ្មែរ"
+  "khmer": "ភាសាខ្មែរ",
+  "theme": "ស្បែកផ្ទៃ",
+  "toggleTheme": "ប្តូររបៀបងងឹត/ពន្លឺ (Dark/Light)",
+  "darkMode": "របៀបងងឹត (Dark)",
+  "lightMode": "របៀបពន្លឺ (Light)",
+  "systemMode": "ស្វ័យប្រវត្តិតាមប្រព័ន្ធ (Auto)"
 }

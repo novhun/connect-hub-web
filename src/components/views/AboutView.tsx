@@ -34,7 +34,9 @@ import {
   Copy,
   GitBranch,
   Star,
-  Code2
+  Code2,
+  Headphones,
+  Phone
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { User } from '../../types';
@@ -45,11 +47,13 @@ import appLogo from '../../assets/icons/icon.png';
 interface AboutViewProps {
   currentUser?: User;
   onStartDemoCall?: (type: 'audio' | 'video') => void;
+  onOpenSupport?: (mode: 'chat' | 'audio' | 'video') => void;
 }
 
 export const AboutView: React.FC<AboutViewProps> = ({
   currentUser,
   onStartDemoCall,
+  onOpenSupport,
 }) => {
   const { language } = useLanguage();
   const [activeTab, setActiveTab] = useState<'platform' | 'architecture' | 'opensource'>('platform');
@@ -234,6 +238,57 @@ export const AboutView: React.FC<AboutViewProps> = ({
             >
               <Activity className="w-4 h-4" />
               <span>{language === 'km' ? 'ស្ថាបត្យកម្ម & ស្ថានភាពប្រព័ន្ធ' : 'Architecture & Health'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 1b. DEDICATED LIVE SUPPORT CENTER HUB (Shown on About page) */}
+      <div className="bg-gradient-to-r from-blue-900 via-indigo-950 to-slate-900 rounded-3xl p-5 sm:p-6 text-white border border-blue-500/30 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-blue-500/20 backdrop-blur-md flex items-center justify-center text-blue-400 border border-blue-400/30 shadow-inner shrink-0">
+              <Headphones className="w-6 h-6 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-bold text-white">
+                  {language === 'km' ? 'មជ្ឈមណ្ឌលជំនួយផ្ទាល់ (Support Center)' : 'Live Support & Help Center'}
+                </h2>
+                <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-bold bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-400/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  {language === 'km' ? 'អនឡាញ 24/7' : '24/7 Online'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5">
+                {language === 'km'
+                  ? 'ត្រូវការជំនួយ ឬចង់សាកសួរព័ត៌មានបន្ថែម? ក្រុមការងាររបស់យើងត្រៀមជួយអ្នកគ្រប់ពេលវេលា។'
+                  : 'Need assistance, account help, or have questions? Our support team is ready to assist you in real time.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center flex-wrap gap-2 w-full sm:w-auto">
+            <button
+              onClick={() => onOpenSupport ? onOpenSupport('chat') : onStartDemoCall?.('audio')}
+              className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-blue-500/25 transition-all cursor-pointer active:scale-95"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>{language === 'km' ? 'ជជែកផ្ទាល់ (Live Chat)' : 'Live Chat'}</span>
+            </button>
+            <button
+              onClick={() => onOpenSupport ? onOpenSupport('audio') : onStartDemoCall?.('audio')}
+              className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/25 transition-all cursor-pointer active:scale-95"
+            >
+              <Phone className="w-3.5 h-3.5" />
+              <span>{language === 'km' ? 'ហៅជាសំឡេង (Audio)' : 'Audio Call'}</span>
+            </button>
+            <button
+              onClick={() => onOpenSupport ? onOpenSupport('video') : onStartDemoCall?.('video')}
+              className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-500/25 transition-all cursor-pointer active:scale-95"
+            >
+              <Video className="w-3.5 h-3.5" />
+              <span>{language === 'km' ? 'ហៅជាវីដេអូ (Video)' : 'Video Call'}</span>
             </button>
           </div>
         </div>
