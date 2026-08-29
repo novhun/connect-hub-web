@@ -49,6 +49,7 @@ interface HeaderProps {
   onToggleMobileMenu?: () => void;
   onLogout?: () => void;
   onOpenLogin?: () => void;
+  isVisible?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -66,6 +67,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleMobileMenu,
   onLogout,
   onOpenLogin,
+  isVisible = true,
 }) => {
   const { language, setLanguage, toggleLanguage, t } = useLanguage();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -127,7 +129,11 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header
       id="main-header"
-      className="bg-white border-b border-gray-200 h-14 sm:h-16 flex items-center justify-between px-2 sm:px-6 shrink-0 shadow-xs z-30 sticky top-0 w-full"
+      className={`bg-white border-b border-gray-200 h-14 sm:h-16 flex items-center justify-between px-2 sm:px-6 shrink-0 shadow-xs z-30 sticky top-0 w-full transition-all duration-300 ease-in-out ${
+        isVisible
+          ? 'max-md:translate-y-0 max-md:mt-0 max-md:opacity-100'
+          : 'max-md:-translate-y-full max-md:-mt-14 max-md:opacity-0 max-md:pointer-events-none'
+      }`}
     >
       {/* Left: Hamburger (Mobile) + Brand Logo */}
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">

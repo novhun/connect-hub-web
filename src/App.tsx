@@ -130,6 +130,60 @@ export default function App() {
   const [isApiConnected, setIsApiConnected] = useState<boolean>(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isMobileNavVisible, setIsMobileNavVisible] = useState<boolean>(true);
+
+  // Auto-hide and auto-show mobile Header & MobileBottomNav on scroll
+  useEffect(() => {
+    setIsMobileNavVisible(true);
+  }, [activeTab]);
+
+  useEffect(() => {
+    const mainFeed = document.getElementById('main-feed');
+    let lastScrollY = mainFeed ? mainFeed.scrollTop : window.scrollY;
+    let ticking = false;
+
+    const handleScroll = () => {
+      const currentScrollY = mainFeed ? mainFeed.scrollTop : window.scrollY;
+      const delta = currentScrollY - lastScrollY;
+
+      // Always show nav near top
+      if (currentScrollY <= 40) {
+        setIsMobileNavVisible(true);
+      }
+      // Scrolling down -> Auto hide
+      else if (delta > 12 && currentScrollY > 60) {
+        setIsMobileNavVisible(false);
+      }
+      // Scrolling up -> Auto show back
+      else if (delta < -8) {
+        setIsMobileNavVisible(true);
+      }
+
+      lastScrollY = currentScrollY;
+    };
+
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    if (mainFeed) {
+      mainFeed.addEventListener('scroll', onScroll, { passive: true });
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    return () => {
+      if (mainFeed) {
+        mainFeed.removeEventListener('scroll', onScroll);
+      }
+      window.removeEventListener('scroll', onScroll);
+    };
+  }, []);
 
   // Auth & Real Call states
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(Boolean(initialRoute.isAuthLogin));
@@ -755,6 +809,7 @@ export default function App() {
         onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         onLogout={handleLogout}
         onOpenLogin={handleOpenLogin}
+        isVisible={isMobileNavVisible}
       />
 
       {/* BEGIN: Main Layout Wrapper */}
@@ -778,7 +833,11 @@ export default function App() {
         {/* BEGIN: Main Center Feed / View Container */}
         <main
           id="main-feed"
-          className="flex-1 overflow-y-auto bg-[#f0f2f5] p-3 sm:p-6 pb-20 md:pb-6"
+          className={`flex-1 overflow-y-auto ${
+            activeTab === 'clips'
+              ? 'p-0 pb-0 bg-black overflow-hidden flex flex-col'
+              : 'bg-[#f0f2f5] p-3 sm:p-6 pb-20 md:pb-6'
+          }`}
         >
           {/* Render based on active navigation tab */}
           {activeTab === 'home' && (
@@ -890,6 +949,8 @@ export default function App() {
               onSharePost={(p) => setSharingPost(p)}
               onSelectPost={handleOpenPostDetail}
               onViewProfile={(id) => handleOpenProfile(id)}
+              onNavVisibilityChange={setIsMobileNavVisible}
+              isNavVisible={isMobileNavVisible}
             />
           )}
 
@@ -1217,6 +1278,7 @@ export default function App() {
 
       {/* 13. Mobile Floating Support Help Button (Visible on screens < xl) */}
       <FloatingSupportButton
+        isVisible={isMobileNavVisible}
         onOpenSupport={(mode) => {
           if (mode === 'chat') setSupportModalMode('chat');
           else handleStartRealCall(onlineMembers[0] || currentUser, mode);
@@ -1232,6 +1294,7 @@ export default function App() {
           setIsCreatePostOpen(true);
         }}
         unreadNotifsCount={unreadNotifsCount}
+        isVisible={isMobileNavVisible}
       />
     </div>
   );

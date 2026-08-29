@@ -63,6 +63,8 @@ interface ClipsViewProps {
   onSharePost?: (post: Post) => void;
   onSelectPost?: (post: Post) => void;
   onViewProfile?: (userId: string) => void;
+  onNavVisibilityChange?: (visible: boolean) => void;
+  isNavVisible?: boolean;
 }
 
 export const ClipsView: React.FC<ClipsViewProps> = ({
@@ -73,6 +75,8 @@ export const ClipsView: React.FC<ClipsViewProps> = ({
   onSaveToggle,
   onSharePost,
   onViewProfile,
+  onNavVisibilityChange,
+  isNavVisible = true,
 }) => {
   const { language } = useLanguage();
   const [uploadedClips, setUploadedClips] = useState<ClipItem[]>([]);
@@ -125,7 +129,7 @@ export const ClipsView: React.FC<ClipsViewProps> = ({
       if (post.images && post.images.length > 0) {
         post.images.forEach((imgUrl, imgIdx) => {
           if (isVideoFile(imgUrl)) {
-            const totalLikes = Object.values(post.reactionCounts || {}).reduce((a: number, b: any) => a + Number(b || 0), 0);
+            const totalLikes = Object.values(post.reactionCounts || {}).reduce<number>((a, b) => a + Number(b || 0), 0);
             extracted.push({
               id: `post-clip-${post.id}-${imgIdx}`,
               postId: post.id,
@@ -139,7 +143,7 @@ export const ClipsView: React.FC<ClipsViewProps> = ({
               },
               caption: post.content || (language === 'km' ? 'វីដេអូពីការបង្ហោះ' : 'Video from post'),
               musicTitle: `Original Audio - ${authorName}`,
-              likesCount: totalLikes || 0,
+              likesCount: Number(totalLikes) || 0,
               commentsCount: post.comments?.length || 0,
               sharesCount: post.sharesCount || 0,
               isLiked: post.userReaction !== null,
@@ -248,6 +252,45 @@ export const ClipsView: React.FC<ClipsViewProps> = ({
       observer.disconnect();
     };
   }, [allClips.length]);
+
+  // Scroll tracking to auto-hide and show mobile header/footer when navigating between clips
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !onNavVisibilityChange) return;
+
+    let lastScrollTop = container.scrollTop;
+    let ticking = false;
+
+    const handleScroll = () => {
+      const currentScrollTop = container.scrollTop;
+      const delta = currentScrollTop - lastScrollTop;
+
+      if (currentScrollTop <= 30) {
+        onNavVisibilityChange(true);
+      } else if (delta > 10) {
+        // Scrolling down to next clip
+        onNavVisibilityChange(false);
+      } else if (delta < -8) {
+        // Scrolling up to previous clip
+        onNavVisibilityChange(true);
+      }
+
+      lastScrollTop = currentScrollTop;
+    };
+
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    container.addEventListener('scroll', onScroll, { passive: true });
+    return () => container.removeEventListener('scroll', onScroll);
+  }, [onNavVisibilityChange, allClips.length]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -504,7 +547,7 @@ export const ClipsView: React.FC<ClipsViewProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center min-h-[calc(100vh-70px)] py-1 sm:py-2 px-1 sm:px-4 relative animate-in fade-in duration-200">
+    <div className="flex-1 w-full h-full flex flex-col items-center justify-center p-0 md:py-3 md:px-4 relative animate-in fade-in duration-200 bg-black md:bg-transparent overflow-hidden">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-16 z-50 bg-gray-900/90 text-white text-xs font-semibold px-4 py-2 rounded-full shadow-2xl backdrop-blur-md border border-white/10 animate-in fade-in slide-in-from-top-4 duration-150">
@@ -536,11 +579,11 @@ export const ClipsView: React.FC<ClipsViewProps> = ({
           </button>
         </div>
       ) : (
-        /* Main Snap Scrolling Container */
-        <div className="relative w-full max-w-[380px] sm:max-w-[420px] flex items-center justify-center">
+        /* Main Snap Scrolling Container — Full Screen Edge-to-Edge on Mobile */
+        <div className="relative w-full h-full max-w-none md:max-w-[420px] md:h-[84vh] md:max-h-[800px] flex items-center justify-center">
           <div
             ref={containerRef}
-            className="w-full h-[76vh] sm:h-[82vh] max-h-[760px] overflow-y-scroll snap-y snap-mandatory rounded-2xl sm:rounded-3xl shadow-2xl bg-black border border-gray-800/80 select-none scroll-smooth"
+            className="w-full h-full overflow-y-scroll snap-y snap-mandatory rounded-none md:rounded-3xl shadow-none md:shadow-2xl bg-black border-none md:border md:border-gray-800/80 select-none scroll-smooth"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {allClips.map((clip, idx) => {
@@ -572,7 +615,7 @@ export const ClipsView: React.FC<ClipsViewProps> = ({
                       muted={isMuted}
                       preload={idx <= 2 ? 'auto' : 'metadata'}
                       onTimeUpdate={() => handleVideoTimeUpdate(idx, clip.id)}
-                      className="w-full h-full object-contain bg-black"
+                      className="w-full h-full object-cover sm:object-contain bg-black"
                     />
 
                     {/* Double tap heart explosion animation */}

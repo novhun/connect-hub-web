@@ -16,6 +16,7 @@ interface MobileBottomNavProps {
   setActiveTab: (tab: string) => void;
   onOpenCreatePost: () => void;
   unreadNotifsCount: number;
+  isVisible?: boolean;
 }
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
@@ -23,11 +24,14 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   setActiveTab,
   onOpenCreatePost,
   unreadNotifsCount,
+  isVisible = true,
 }) => {
   const { t } = useLanguage();
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-200 px-1.5 py-1.5 flex items-center justify-around shadow-lg">
+    <nav className={`md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-200 px-1.5 py-1.5 flex items-center justify-around shadow-lg transition-transform duration-300 ease-in-out ${
+      isVisible ? 'translate-y-0' : 'translate-y-full pointer-events-none'
+    }`}>
       {/* Home */}
       <button
         onClick={() => setActiveTab('home')}

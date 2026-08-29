@@ -4,10 +4,12 @@ import { useLanguage } from '../context/LanguageContext';
 
 interface FloatingSupportButtonProps {
   onOpenSupport: (mode: 'audio' | 'video' | 'chat') => void;
+  isVisible?: boolean;
 }
 
 export const FloatingSupportButton: React.FC<FloatingSupportButtonProps> = ({
   onOpenSupport,
+  isVisible = true,
 }) => {
   const { t, language } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
@@ -24,7 +26,12 @@ export const FloatingSupportButton: React.FC<FloatingSupportButtonProps> = ({
   }, []);
 
   return (
-    <div ref={containerRef} className="xl:hidden fixed bottom-20 right-4 z-40">
+    <div
+      ref={containerRef}
+      className={`xl:hidden fixed right-4 z-40 transition-all duration-300 ease-in-out ${
+        isVisible ? 'bottom-20' : 'bottom-4'
+      }`}
+    >
       {/* Quick Action Popup Menu */}
       {isOpen && (
         <div className="absolute bottom-16 right-0 w-60 bg-white rounded-2xl shadow-2xl border border-gray-100 p-3 space-y-2 mb-2 animate-in fade-in slide-in-from-bottom-3 duration-200">
