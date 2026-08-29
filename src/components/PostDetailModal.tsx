@@ -501,13 +501,91 @@ export const PostDetailModal: React.FC<PostDetailModalProps> = ({
                 </div>
               )}
 
+              {/* Embedded Shared Post YouTube/Video Player */}
+              {(() => {
+                const urls = extractUrls(post.sharedPost.content || '');
+                const firstYtOrVideoUrl = urls.find((u) => getYouTubeVideoId(u) || isVideoFile(u));
+                if (!firstYtOrVideoUrl) return null;
+                return (
+                  <div className="mb-2" onClick={(e) => e.stopPropagation()}>
+                    <VideoEmbedPlayer
+                      url={firstYtOrVideoUrl}
+                      onOpenFullscreen={(u) => setLightboxImage(u)}
+                    />
+                  </div>
+                );
+              })()}
+
+              {/* Embedded Shared Post Image & Video Gallery */}
               {post.sharedPost.images && post.sharedPost.images.length > 0 && (
-                <div className="rounded-xl overflow-hidden border border-gray-200/80 max-h-60 bg-gray-100">
-                  <img
-                    src={api.getMediaUrl(post.sharedPost.images[0])}
-                    alt="Shared post thumbnail"
-                    className="w-full h-full object-cover"
-                  />
+                <div className="rounded-xl overflow-hidden border border-gray-200/80 shadow-2xs">
+                  {post.sharedPost.images.length === 1 && (
+                    isVideoFile(post.sharedPost.images[0]) ? (
+                      <div 
+                        className="w-full bg-black flex items-center justify-center"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <video
+                          src={api.getMediaUrl(post.sharedPost.images[0])}
+                          controls
+                          playsInline
+                          preload="metadata"
+                          className="w-full max-h-80 object-contain bg-black"
+                        />
+                      </div>
+                    ) : (
+                      <div 
+                        className="h-56 sm:h-72 w-full cursor-pointer overflow-hidden group bg-gray-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLightboxImage(api.getMediaUrl(post.sharedPost!.images![0]));
+                        }}
+                      >
+                        <img
+                          src={api.getMediaUrl(post.sharedPost.images[0])}
+                          alt="Shared post visual"
+                          className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                        />
+                      </div>
+                    )
+                  )}
+                  {post.sharedPost.images.length > 1 && (
+                    <div className="grid grid-cols-2 gap-1 h-52 sm:h-64">
+                      {post.sharedPost.images.slice(0, 4).map((img, idx) => (
+                        <div
+                          key={idx}
+                          className="h-full cursor-pointer overflow-hidden group bg-black flex items-center justify-center relative"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isVideoFile(img)) {
+                              setLightboxImage(api.getMediaUrl(img));
+                            }
+                          }}
+                        >
+                          {isVideoFile(img) ? (
+                            <>
+                              <video
+                                src={api.getMediaUrl(img)}
+                                muted
+                                playsInline
+                                preload="metadata"
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute inset-0 bg-black/30 flex items-center justify-center pointer-events-none">
+                                <span className="text-white text-xs font-bold bg-black/60 px-2 py-0.5 rounded-full">▶ VIDEO</span>
+                              </div>
+                            </>
+                          ) : (
+                            <img
+                              src={api.getMediaUrl(img)}
+                              alt={`Shared post visual ${idx + 1}`}
+                              className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

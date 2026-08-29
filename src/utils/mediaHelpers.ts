@@ -26,6 +26,13 @@ export const getYouTubeVideoId = (url: string): string | null => {
   return null;
 };
 
+// Returns YouTube video thumbnail URL
+export const getYouTubeThumbnail = (url: string): string | null => {
+  const videoId = getYouTubeVideoId(url);
+  if (!videoId) return null;
+  return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+};
+
 // Extracts URLs from a given message or post string
 export const extractUrls = (text: string): string[] => {
   if (!text) return [];

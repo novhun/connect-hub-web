@@ -17,12 +17,14 @@ import {
   Loader2, 
   Globe, 
   Image as ImageIcon,
-  Repeat
+  Repeat,
+  Play
 } from 'lucide-react';
 import { User, Post, FriendStatusInfo } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
 import { friendsApi } from '../modules/friends/api';
+import { isVideoFile } from '../utils/mediaHelpers';
 import { EditProfileModal } from './EditProfileModal';
 
 interface UserProfileModalProps {
@@ -424,21 +426,57 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                             <p className="text-[11px] text-gray-600 line-clamp-2">{p.sharedPost.content}</p>
                           )}
                           {p.sharedPost.images && p.sharedPost.images.length > 0 && (
-                            <img
-                              src={api.getMediaUrl(p.sharedPost.images[0])}
-                              alt="Shared post thumbnail"
-                              className="h-20 w-full object-cover rounded-md mt-1"
-                            />
+                            <div className="h-24 w-full rounded-md mt-1 overflow-hidden relative bg-black flex items-center justify-center">
+                              {isVideoFile(p.sharedPost.images[0]) ? (
+                                <>
+                                  <video
+                                    src={api.getMediaUrl(p.sharedPost.images[0])}
+                                    muted
+                                    playsInline
+                                    preload="metadata"
+                                    className="w-full h-full object-cover"
+                                  />
+                                  <span className="absolute top-1 right-1 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5 backdrop-blur-xs">
+                                    <Play className="w-2.5 h-2.5 fill-current" />
+                                    <span>VIDEO</span>
+                                  </span>
+                                </>
+                              ) : (
+                                <img
+                                  src={api.getMediaUrl(p.sharedPost.images[0])}
+                                  alt="Shared post thumbnail"
+                                  className="w-full h-full object-cover"
+                                />
+                              )}
+                            </div>
                           )}
                         </div>
                       )}
 
                       {p.images && p.images.length > 0 && !p.sharedPost && (
-                        <img
-                          src={api.getMediaUrl(p.images[0])}
-                          alt="Post thumbnail"
-                          className="h-28 w-full object-cover rounded-lg"
-                        />
+                        <div className="h-28 w-full rounded-lg overflow-hidden relative bg-black flex items-center justify-center">
+                          {isVideoFile(p.images[0]) ? (
+                            <>
+                              <video
+                                src={api.getMediaUrl(p.images[0])}
+                                muted
+                                playsInline
+                                preload="metadata"
+                                className="w-full h-full object-cover"
+                              />
+                              <span className="absolute top-1 right-1 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5 backdrop-blur-xs">
+                                <Play className="w-2.5 h-2.5 fill-current" />
+                                <span>VIDEO</span>
+                              </span>
+                            </>
+                          ) : (
+                            <img
+                              src={api.getMediaUrl(p.images[0])}
+                              alt="Post thumbnail"
+                              className="w-full h-full object-cover"
+                            />
+                          )}
+                        </div>
                       )}
                     </div>
 

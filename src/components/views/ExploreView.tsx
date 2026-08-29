@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { Compass, Flame, Users, X } from 'lucide-react';
+import { Compass, Flame, Users, X, Play, Video } from 'lucide-react';
 import { Post, Group, User, ReactionType } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { api } from '../../services/api';
+import { getYouTubeThumbnail, isVideoFile, extractUrls } from '../../utils/mediaHelpers';
 import { PostCard } from '../PostCard';
 
 interface ExploreViewProps {
@@ -45,10 +46,142 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
       .map(([tag, count]) => ({ tag, count }));
   }, [posts]);
 
-  const visualPosts = useMemo(
-    () => posts.filter((p) => p.images && p.images.length > 0).slice(0, 12),
-    [posts]
-  );
+  // Extract all visual media (images, uploaded video files, YouTube thumbnails)
+  const visualMediaItems = useMemo(() => {
+    const items: Array<{
+      id: string;
+      postId: string;
+      post: Post;
+      type: 'image' | 'video' | 'youtube';
+      mediaUrl: string;
+      thumbnailUrl?: string;
+      reactionsCount: number;
+    }> = [];
+
+    const seenUrls = new Set<string>();
+
+    for (const post of posts) {
+      const reactionsCount =
+        Object.values(post.reactionCounts || {}).reduce<number>(
+          (sum, count) => sum + (Number(count) || 0),
+          0
+        ) + (post.userReaction ? 1 : 0);
+
+      // Check post images / uploaded video files
+      if (post.images && post.images.length > 0) {
+        for (let i = 0; i < post.images.length; i++) {
+          const media = post.images[i];
+          const fullMediaUrl = api.getMediaUrl(media);
+          if (seenUrls.has(fullMediaUrl)) continue;
+          seenUrls.add(fullMediaUrl);
+
+          if (isVideoFile(media)) {
+            items.push({
+              id: `${post.id}-vid-${i}`,
+              postId: post.id,
+              post,
+              type: 'video',
+              mediaUrl: fullMediaUrl,
+              reactionsCount,
+            });
+          } else {
+            items.push({
+              id: `${post.id}-img-${i}`,
+              postId: post.id,
+              post,
+              type: 'image',
+              mediaUrl: fullMediaUrl,
+              thumbnailUrl: fullMediaUrl,
+              reactionsCount,
+            });
+          }
+        }
+      }
+
+      // Check YouTube or direct video URLs embedded in post.content
+      const urls = extractUrls(post.content || '');
+      for (let i = 0; i < urls.length; i++) {
+        const url = urls[i];
+        if (seenUrls.has(url)) continue;
+        const ytThumb = getYouTubeThumbnail(url);
+        if (ytThumb) {
+          seenUrls.add(url);
+          items.push({
+            id: `${post.id}-yt-${i}`,
+            postId: post.id,
+            post,
+            type: 'youtube',
+            mediaUrl: url,
+            thumbnailUrl: ytThumb,
+            reactionsCount,
+          });
+        } else if (isVideoFile(url)) {
+          seenUrls.add(url);
+          items.push({
+            id: `${post.id}-extvid-${i}`,
+            postId: post.id,
+            post,
+            type: 'video',
+            mediaUrl: url,
+            reactionsCount,
+          });
+        }
+      }
+
+      // Check sharedPost media
+      if (post.sharedPost) {
+        if (post.sharedPost.images && post.sharedPost.images.length > 0) {
+          for (let i = 0; i < post.sharedPost.images.length; i++) {
+            const media = post.sharedPost.images[i];
+            const fullMediaUrl = api.getMediaUrl(media);
+            if (seenUrls.has(fullMediaUrl)) continue;
+            seenUrls.add(fullMediaUrl);
+
+            if (isVideoFile(media)) {
+              items.push({
+                id: `${post.id}-sharedvid-${i}`,
+                postId: post.id,
+                post,
+                type: 'video',
+                mediaUrl: fullMediaUrl,
+                reactionsCount,
+              });
+            } else {
+              items.push({
+                id: `${post.id}-sharedimg-${i}`,
+                postId: post.id,
+                post,
+                type: 'image',
+                mediaUrl: fullMediaUrl,
+                thumbnailUrl: fullMediaUrl,
+                reactionsCount,
+              });
+            }
+          }
+        }
+        const sharedUrls = extractUrls(post.sharedPost.content || '');
+        for (let i = 0; i < sharedUrls.length; i++) {
+          const url = sharedUrls[i];
+          if (seenUrls.has(url)) continue;
+          const ytThumb = getYouTubeThumbnail(url);
+          if (ytThumb) {
+            seenUrls.add(url);
+            items.push({
+              id: `${post.id}-sharedyt-${i}`,
+              postId: post.id,
+              post,
+              type: 'youtube',
+              mediaUrl: url,
+              thumbnailUrl: ytThumb,
+              reactionsCount,
+            });
+          }
+        }
+      }
+    }
+
+    return items.slice(0, 18);
+  }, [posts]);
 
   const discoverGroups = useMemo(() => groups.filter((g) => !g.joined).slice(0, 4), [groups]);
 
@@ -121,27 +254,58 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
         )}
       </div>
 
-      {/* Trending Visual Gallery Grid (real post media) */}
+      {/* Trending Visual Gallery Grid (images, video files & YouTube embeds) */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
         <h2 className="font-bold text-gray-900 text-sm mb-4">{t('explore.trendingVisuals')}</h2>
-        {visualPosts.length === 0 ? (
+        {visualMediaItems.length === 0 ? (
           <p className="text-xs text-gray-400 text-center py-6">{t('explore.noVisualsYet')}</p>
         ) : (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-            {visualPosts.map((post) => (
+            {visualMediaItems.map((item) => (
               <div
-                key={post.id}
-                onClick={() => (onSelectPost ? onSelectPost(post.id) : setPreviewPost(post))}
-                className="aspect-square rounded-xl overflow-hidden cursor-pointer relative group bg-gray-100"
+                key={item.id}
+                onClick={() => (onSelectPost ? onSelectPost(item.postId) : setPreviewPost(item.post))}
+                className="aspect-square rounded-xl overflow-hidden cursor-pointer relative group bg-black/5"
               >
-                <img
-                  src={api.getMediaUrl(post.images[0])}
-                  alt={post.content.slice(0, 30)}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                  <span className="text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
-                    {post.likes} ❤️
+                {item.type === 'video' ? (
+                  <div className="w-full h-full relative bg-black flex items-center justify-center overflow-hidden">
+                    <video
+                      src={item.mediaUrl}
+                      preload="metadata"
+                      muted
+                      playsInline
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 pointer-events-none"
+                    />
+                    <span className="absolute top-1.5 right-1.5 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5 backdrop-blur-xs">
+                      <Play className="w-2.5 h-2.5 fill-current" />
+                      <span>VIDEO</span>
+                    </span>
+                  </div>
+                ) : item.type === 'youtube' ? (
+                  <div className="w-full h-full relative bg-black flex items-center justify-center overflow-hidden">
+                    <img
+                      src={item.thumbnailUrl}
+                      alt={item.post.content.slice(0, 30)}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                    />
+                    <span className="absolute top-1.5 right-1.5 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5 shadow-xs">
+                      <Play className="w-2.5 h-2.5 fill-current" />
+                      <span>YT</span>
+                    </span>
+                  </div>
+                ) : (
+                  <img
+                    src={item.thumbnailUrl}
+                    alt={item.post.content.slice(0, 30)}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                  />
+                )}
+
+                {/* Hover overlay with reaction count */}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/35 transition-colors flex items-center justify-center pointer-events-none">
+                  <span className="text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                    <span>❤️</span>
+                    <span>{item.reactionsCount}</span>
                   </span>
                 </div>
               </div>
