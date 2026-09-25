@@ -110,7 +110,48 @@ export interface DirectMessage {
   text: string;
   timestamp: string;
   isMe: boolean;
-  messageType?: 'text' | 'voice' | 'file' | 'sticker' | 'image';
+  messageType?: 'text' | 'voice' | 'file' | 'sticker' | 'image' | 'system';
+  mediaUrl?: string;
+  fileName?: string;
+  fileSize?: string;
+  duration?: string;
+  senderName?: string;
+  senderAvatar?: string;
+}
+
+export interface GroupChatMemberItem {
+  id: string;
+  userId: string;
+  role: string;
+  joinedAt?: string;
+  user: User;
+}
+
+export interface GroupChat {
+  id: string;
+  name: string;
+  avatar: string;
+  description?: string;
+  creatorId: string;
+  inviteCode?: string;
+  membersCount: number;
+  members: GroupChatMemberItem[];
+  lastMessage?: string;
+  lastMessageSender?: string;
+  lastTimestamp?: string;
+  unreadCount?: number;
+  isGroup: true;
+}
+
+export interface GroupChatMessage {
+  id: string;
+  groupChatId: string;
+  senderId: string;
+  sender: User;
+  text: string;
+  timestamp: string;
+  isMe: boolean;
+  messageType?: 'text' | 'voice' | 'file' | 'sticker' | 'image' | 'system';
   mediaUrl?: string;
   fileName?: string;
   fileSize?: string;
@@ -123,6 +164,7 @@ export interface ChatSession {
   messages: DirectMessage[];
   isOpen: boolean;
   isMinimized: boolean;
+  groupChat?: GroupChat;
 }
 
 export interface EventItem {

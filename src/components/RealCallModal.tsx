@@ -10,8 +10,13 @@ import {
   Monitor,
   SwitchCamera,
   Signal,
+  Users,
+  UserPlus,
+  Copy,
+  Check,
+  X,
 } from 'lucide-react';
-import { User } from '../types';
+import { User, GroupChatMemberItem } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
 import { realtime, RealtimeMessage } from '../services/realtime';
@@ -24,6 +29,11 @@ interface RealCallModalProps {
   roomId: string;
   role: 'caller' | 'callee';
   sessionId?: string;
+  isGroupCall?: boolean;
+  groupId?: string;
+  groupName?: string;
+  groupAvatar?: string;
+  currentUser?: User;
   onClose: () => void;
 }
 
@@ -41,10 +51,17 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
   roomId,
   role,
   sessionId,
+  isGroupCall = false,
+  groupId,
+  groupName,
+  groupAvatar,
+  currentUser,
   onClose,
 }) => {
   const { language } = useLanguage();
-  const [callStatus, setCallStatus] = useState<CallStatus>(role === 'caller' ? 'ringing' : 'connecting');
+  const [callStatus, setCallStatus] = useState<CallStatus>(
+    isGroupCall ? 'connected' : role === 'caller' ? 'ringing' : 'connecting'
+  );
   const [endReason, setEndReason] = useState<EndReason>(null);
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
@@ -55,6 +72,12 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [hasRemoteStream, setHasRemoteStream] = useState(false);
 
+  // Group Call specific states
+  const [showInviteDrawer, setShowInviteDrawer] = useState(false);
+  const [groupMembers, setGroupMembers] = useState<GroupChatMemberItem[]>([]);
+  const [invitedUserIds, setInvitedUserIds] = useState<Set<string>>(new Set());
+  const [copiedLink, setCopiedLink] = useState(false);
+
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -64,9 +87,46 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const remoteDescSetRef = useRef(false);
-  const answeredRef = useRef(role === 'callee');
+  const answeredRef = useRef(role === 'callee' || isGroupCall);
   const closedRef = useRef(false);
   const durationRef = useRef(0);
+
+  // Load group members if this is a group call
+  useEffect(() => {
+    if (isGroupCall && groupId) {
+      api.getGroupChat(groupId).then((res) => {
+        if (res && res.members) {
+          setGroupMembers(res.members);
+        }
+      }).catch((e) => {
+        console.warn('Failed to fetch group members for call:', e);
+      });
+    }
+  }, [isGroupCall, groupId]);
+
+  const handleInviteMember = (member: GroupChatMemberItem) => {
+    if (invitedUserIds.has(member.id)) return;
+    realtime.send({
+      type: 'GROUP_CALL_INVITE',
+      groupId,
+      groupName,
+      groupAvatar,
+      callerId: currentUser?.id || 'me',
+      callerName: currentUser?.name || 'User',
+      callerAvatar: currentUser?.avatar || '',
+      callType,
+      roomId,
+      sessionId,
+      targetUserId: member.id,
+    });
+    setInvitedUserIds((prev) => new Set(prev).add(member.id));
+  };
+
+  const handleCopyCallLink = () => {
+    navigator.clipboard.writeText(`${window.location.origin}/calls?room=${roomId}&group=${groupId || ''}`);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
 
   // Real getUserMedia — actual camera/mic, no simulated fallback data.
   const initMediaStream = async () => {
@@ -308,12 +368,21 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
           break;
         }
         case 'CALL_DECLINE':
-          finishCall('declined');
+          if (!isGroupCall) {
+            finishCall('declined');
+          }
           break;
         case 'CALL_UNAVAILABLE':
-          finishCall('unavailable');
+          if (!isGroupCall) {
+            finishCall('unavailable');
+          }
           break;
         case 'CALL_END':
+          if (!isGroupCall) {
+            finishCall('ended');
+          }
+          break;
+        case 'GROUP_CALL_END':
           finishCall('ended');
           break;
       }
@@ -322,7 +391,7 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
     const unsubscribe = realtime.subscribe(handleSignal);
 
     initMediaStream().then(() => {
-      if (role === 'caller') {
+      if (role === 'caller' && !isGroupCall) {
         ringTimeout = setTimeout(() => {
           if (!answeredRef.current && !closedRef.current) {
             realtime.send({ type: 'CALL_END', targetUserId: targetUser.id, roomId });
@@ -478,7 +547,11 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
   };
 
   const handleEndCall = () => {
-    realtime.send({ type: 'CALL_END', targetUserId: targetUser.id, roomId });
+    if (isGroupCall && groupId) {
+      realtime.send({ type: 'GROUP_CALL_LEAVE', groupId, roomId, userId: currentUser?.id });
+    } else {
+      realtime.send({ type: 'CALL_END', targetUserId: targetUser.id, roomId });
+    }
     finishCall('ended');
   };
 
@@ -491,10 +564,15 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
     }
     if (callStatus === 'ringing') return language === 'km' ? 'កំពុងហៅ...' : 'Ringing...';
     if (callStatus === 'connecting') return language === 'km' ? 'កំពុងតភ្ជាប់...' : 'Connecting...';
-    return language === 'km' ? 'បានតភ្ជាប់ (WebRTC ផ្ទាល់)' : 'Connected — Live P2P';
+    return language === 'km' ? 'បានតភ្ជាប់' : 'Connected';
   };
 
   const showRemoteVideo = callType === 'video' && hasRemoteStream && callStatus === 'connected';
+
+  // For group call, collect display participants
+  const otherMembers = isGroupCall
+    ? groupMembers.filter((m) => m.id !== currentUser?.id && m.id !== targetUser.id)
+    : [];
 
   return (
     <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-md animate-in fade-in duration-200">
@@ -503,11 +581,25 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
         <div className="relative z-20 p-4 sm:p-5 flex items-center justify-between bg-gradient-to-b from-black/80 via-black/40 to-transparent">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <img
-                src={api.getMediaUrl(targetUser.avatar)}
-                alt={targetUser.name}
-                className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-blue-500 shadow-md"
-              />
+              {isGroupCall ? (
+                groupAvatar ? (
+                  <img
+                    src={api.getMediaUrl(groupAvatar)}
+                    alt={groupName || 'Group'}
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-indigo-500 shadow-md"
+                  />
+                ) : (
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 border-2 border-indigo-400 flex items-center justify-center text-white shadow-md">
+                    <Users className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </div>
+                )
+              ) : (
+                <img
+                  src={api.getMediaUrl(targetUser.avatar)}
+                  alt={targetUser.name}
+                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-blue-500 shadow-md"
+                />
+              )}
               <span
                 className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-950 ${
                   callStatus === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400 animate-pulse'
@@ -515,11 +607,20 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
               />
             </div>
             <div>
-              <h3 className="font-bold text-white text-sm sm:text-base">{targetUser.name}</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-white text-sm sm:text-base">
+                  {isGroupCall ? groupName || 'Group Call' : targetUser.name}
+                </h3>
+                {isGroupCall && (
+                  <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-semibold border border-indigo-500/30">
+                    {language === 'km' ? 'ការហៅជាក្រុម' : 'Group Call'}
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2 text-xs text-slate-300">
                 <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                  {statusLabel()}
+                  {isGroupCall ? (language === 'km' ? 'កំពុងដំណើរការ' : 'Active Group Call') : statusLabel()}
                 </span>
                 {callStatus === 'connected' && (
                   <>
@@ -532,9 +633,18 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {isGroupCall && (
+              <button
+                onClick={() => setShowInviteDrawer(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-semibold shadow-md transition-all cursor-pointer border border-indigo-400/30"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{language === 'km' ? 'អញ្ជើញមិត្តភក្តិ' : 'Invite'}</span>
+              </button>
+            )}
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/80 border border-slate-700 text-[11px] text-slate-300 backdrop-blur-md font-mono">
               <Signal className="w-3 h-3 text-emerald-400" />
-              <span className="text-blue-400">WebRTC P2P</span>
+              <span className="text-blue-400">{isGroupCall ? 'Group Mesh' : 'WebRTC P2P'}</span>
             </div>
             <div className="px-2.5 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-semibold">
               {callType === 'video' ? 'Video' : 'Audio'}
@@ -561,28 +671,120 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
 
           {/* Fallback Display with Avatar when remote video is not active / during ringing */}
           {!showRemoteVideo && (
-            <div className="flex flex-col items-center justify-center p-6 text-center z-10 space-y-5">
-              <div className="relative">
-                <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-blue-500 shadow-2xl overflow-hidden relative z-10 bg-slate-800">
-                  <img
-                    src={api.getMediaUrl(targetUser.avatar)}
-                    alt={targetUser.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                {callStatus !== 'ended' && (
-                  <>
-                    <div className="absolute -inset-4 rounded-full bg-blue-500/20 animate-ping duration-1000" />
-                    <div className="absolute -inset-8 rounded-full bg-blue-500/10 animate-pulse duration-1000" />
-                  </>
-                )}
-              </div>
+            isGroupCall ? (
+              /* Group Call Multi-Participant Stage */
+              <div className="w-full h-full flex flex-col items-center justify-center p-6 z-10 overflow-y-auto">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-w-2xl w-full">
+                  {/* Current User Card */}
+                  <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 flex flex-col items-center justify-center text-center space-y-2 relative shadow-lg">
+                    <div className="relative">
+                      <img
+                        src={api.getMediaUrl(currentUser?.avatar || '')}
+                        alt={currentUser?.name || 'You'}
+                        className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-indigo-500"
+                      />
+                      <span className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-slate-950 ${
+                        isMuted ? 'bg-red-500' : 'bg-emerald-500 animate-pulse'
+                      }`} />
+                    </div>
+                    <div>
+                      <p className="text-white text-xs sm:text-sm font-semibold truncate max-w-[120px]">
+                        {currentUser?.name || 'You'} <span className="text-slate-400 font-normal">({language === 'km' ? 'អ្នក' : 'You'})</span>
+                      </p>
+                      <p className="text-[11px] text-slate-400 flex items-center justify-center gap-1 mt-0.5">
+                        {isMuted ? <MicOff className="w-3 h-3 text-red-400" /> : <Mic className="w-3 h-3 text-emerald-400" />}
+                        {isMuted ? (language === 'km' ? 'បិទសំឡេង' : 'Muted') : (language === 'km' ? 'កំពុងនិយាយ' : 'Speaking')}
+                      </p>
+                    </div>
+                  </div>
 
-              <div>
-                <h3 className="text-xl sm:text-2xl font-black text-white">{targetUser.name}</h3>
-                <p className="text-xs text-slate-400 mt-1">{statusLabel()}</p>
+                  {/* Target User / Host Card */}
+                  <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 flex flex-col items-center justify-center text-center space-y-2 relative shadow-lg">
+                    <div className="relative">
+                      <img
+                        src={api.getMediaUrl(targetUser.avatar)}
+                        alt={targetUser.name}
+                        className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-blue-500"
+                      />
+                      <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-slate-950 bg-emerald-500 animate-pulse" />
+                    </div>
+                    <div>
+                      <p className="text-white text-xs sm:text-sm font-semibold truncate max-w-[120px]">
+                        {targetUser.name}
+                      </p>
+                      <p className="text-[11px] text-emerald-400 flex items-center justify-center gap-1 mt-0.5">
+                        <Mic className="w-3 h-3 text-emerald-400" />
+                        {language === 'km' ? 'សកម្ម' : 'Active'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Other Group Members in Call / Group */}
+                  {otherMembers.slice(0, 1).map((member) => (
+                    <div
+                      key={member.id}
+                      className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 flex flex-col items-center justify-center text-center space-y-2 relative shadow-lg"
+                    >
+                      <div className="relative">
+                        <img
+                          src={api.getMediaUrl(member.avatar)}
+                          alt={member.name}
+                          className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-slate-700"
+                        />
+                        <span className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-slate-950 ${
+                          invitedUserIds.has(member.id) ? 'bg-amber-400 animate-ping' : member.isOnline ? 'bg-emerald-500' : 'bg-slate-500'
+                        }`} />
+                      </div>
+                      <div>
+                        <p className="text-white text-xs sm:text-sm font-semibold truncate max-w-[120px]">
+                          {member.name}
+                        </p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          {invitedUserIds.has(member.id) ? (language === 'km' ? 'បានអញ្ជើញ...' : 'Invited...') : member.role}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Quick Invite Button Tile in Grid */}
+                  <button
+                    onClick={() => setShowInviteDrawer(true)}
+                    className="border-2 border-dashed border-slate-700 hover:border-indigo-500 bg-slate-950/30 hover:bg-slate-950/60 rounded-2xl p-4 flex flex-col items-center justify-center text-center space-y-2 transition-all cursor-pointer group"
+                  >
+                    <div className="w-14 h-14 rounded-full bg-slate-800 group-hover:bg-indigo-600/30 flex items-center justify-center text-slate-400 group-hover:text-indigo-400 transition-colors">
+                      <UserPlus className="w-6 h-6" />
+                    </div>
+                    <span className="text-xs font-semibold text-slate-300 group-hover:text-white">
+                      {language === 'km' ? '+ អញ្ជើញសមាជិក' : '+ Invite Member'}
+                    </span>
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              /* Direct 1-on-1 Call Fallback Display */
+              <div className="flex flex-col items-center justify-center p-6 text-center z-10 space-y-5">
+                <div className="relative">
+                  <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-blue-500 shadow-2xl overflow-hidden relative z-10 bg-slate-800">
+                    <img
+                      src={api.getMediaUrl(targetUser.avatar)}
+                      alt={targetUser.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  {callStatus !== 'ended' && (
+                    <>
+                      <div className="absolute -inset-4 rounded-full bg-blue-500/20 animate-ping duration-1000" />
+                      <div className="absolute -inset-8 rounded-full bg-blue-500/10 animate-pulse duration-1000" />
+                    </>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="text-xl sm:text-2xl font-black text-white">{targetUser.name}</h3>
+                  <p className="text-xs text-slate-400 mt-1">{statusLabel()}</p>
+                </div>
+              </div>
+            )
           )}
 
           {/* Hidden audio sink so audio-only (or camera-off) calls still play the remote track */}
@@ -608,6 +810,107 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
           {mediaError && (
             <div className="absolute bottom-4 left-4 right-4 bg-amber-500/20 border border-amber-500/40 text-amber-200 text-xs p-2.5 rounded-xl text-center backdrop-blur-md z-20">
               {mediaError}
+            </div>
+          )}
+
+          {/* Slide-over In-Call Invite Members Drawer */}
+          {showInviteDrawer && (
+            <div className="absolute inset-y-0 right-0 w-full sm:w-80 bg-slate-950/95 border-l border-slate-800 backdrop-blur-xl z-40 flex flex-col p-5 animate-in slide-in-from-right duration-200">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <UserPlus className="w-4 h-4 text-indigo-400" />
+                  <h4 className="font-bold text-white text-sm">
+                    {language === 'km' ? 'អញ្ជើញចូលរួមការហៅ' : 'Invite to Call'}
+                  </h4>
+                </div>
+                <button
+                  onClick={() => setShowInviteDrawer(false)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Room Quick Link */}
+              <div className="my-4 p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
+                <span className="text-[11px] text-slate-400 font-medium">
+                  {language === 'km' ? 'តំណភ្ជាប់បន្ទប់ហៅ' : 'Call Room Link'}
+                </span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={`${window.location.origin}/calls?room=${roomId}`}
+                    className="w-full text-xs bg-slate-950 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-slate-300 select-all outline-none font-mono"
+                  />
+                  <button
+                    onClick={handleCopyCallLink}
+                    className="p-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors cursor-pointer shrink-0"
+                    title="Copy Link"
+                  >
+                    {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Members List */}
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
+                  {language === 'km' ? 'សមាជិកក្រុម' : 'Group Members'}
+                </span>
+                {groupMembers.length === 0 ? (
+                  <p className="text-xs text-slate-500 text-center py-4">
+                    {language === 'km' ? 'គ្មានសមាជិកផ្សេងទៀតទេ' : 'No other members to invite'}
+                  </p>
+                ) : (
+                  groupMembers
+                    .filter((m) => m.id !== currentUser?.id)
+                    .map((member) => {
+                      const isInvited = invitedUserIds.has(member.id);
+                      return (
+                        <div
+                          key={member.id}
+                          className="flex items-center justify-between p-2 rounded-xl bg-slate-900/50 hover:bg-slate-900 border border-slate-800/80 transition-colors"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="relative">
+                              <img
+                                src={api.getMediaUrl(member.avatar)}
+                                alt={member.name}
+                                className="w-8 h-8 rounded-full object-cover"
+                              />
+                              {member.isOnline && (
+                                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-slate-950" />
+                              )}
+                            </div>
+                            <div className="truncate">
+                              <p className="text-xs font-semibold text-white truncate">{member.name}</p>
+                              <p className="text-[10px] text-slate-400 capitalize">{member.role}</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleInviteMember(member)}
+                            disabled={isInvited}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 ${
+                              isInvited
+                                ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30'
+                                : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                            }`}
+                          >
+                            {isInvited ? (
+                              <span className="inline-flex items-center gap-1">
+                                <Check className="w-3 h-3" />
+                                {language === 'km' ? 'បានអញ្ជើញ' : 'Invited'}
+                              </span>
+                            ) : (
+                              language === 'km' ? 'អញ្ជើញ' : 'Invite'
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -669,7 +972,7 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
           <button
             onClick={handleEndCall}
             className="w-14 h-14 rounded-full bg-red-600 hover:bg-red-700 active:scale-95 text-white shadow-xl shadow-red-600/30 flex items-center justify-center transition-all cursor-pointer ml-2"
-            title="End Call"
+            title={isGroupCall ? 'Leave Call' : 'End Call'}
           >
             <PhoneOff className="w-6 h-6" />
           </button>
@@ -678,3 +981,4 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
     </div>
   );
 };
+

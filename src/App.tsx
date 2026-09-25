@@ -194,6 +194,10 @@ export default function App() {
     roomId: string;
     role: 'caller' | 'callee';
     sessionId?: string;
+    isGroupCall?: boolean;
+    groupId?: string;
+    groupName?: string;
+    groupAvatar?: string;
   } | null>(null);
   const [incomingCall, setIncomingCall] = useState<{
     fromUserId: string;
@@ -201,6 +205,10 @@ export default function App() {
     callType: 'audio' | 'video';
     roomId: string;
     sessionId?: string;
+    isGroupCall?: boolean;
+    groupId?: string;
+    groupName?: string;
+    groupAvatar?: string;
   } | null>(null);
 
   // Live Data states from FastAPI Backend
@@ -389,48 +397,99 @@ export default function App() {
   // Real Call Handlers — places a real call: sends a signaling invite over the
   // realtime channel so the other user's browser can actually ring, then opens
   // the caller's own call modal to start the WebRTC handshake once accepted.
-  const handleStartRealCall = async (user: User, type: 'audio' | 'video') => {
+  const handleStartRealCall = async (
+    user: User,
+    type: 'audio' | 'video',
+    groupId?: string,
+    groupParam?: any,
+    groupAvatarParam?: string
+  ) => {
     if (activeRealCall) return; // already in a call
-    let roomId = `call-${currentUser.id}-${user.id}-${Date.now()}`;
+    const groupName = typeof groupParam === 'string' ? groupParam : groupParam?.name;
+    const groupAvatar = groupAvatarParam || (typeof groupParam === 'object' ? groupParam?.avatar : undefined);
+
+    let roomId = groupId
+      ? `group-${groupId}-${Date.now()}`
+      : `call-${currentUser.id}-${user.id}-${Date.now()}`;
     let sessionId: string | undefined;
     try {
-      const session = await api.initiateCall(user.id, type);
+      const session = await api.initiateCall(user.id, type, groupId);
       if (session?.roomId) roomId = session.roomId;
       sessionId = session?.id;
     } catch (e) {
       console.warn('Initiate call API notice:', e);
     }
 
-    realtime.send({
-      type: 'CALL_INVITE',
-      targetUserId: user.id,
-      callerId: currentUser.id,
-      callerName: currentUser.name,
-      callerAvatar: currentUser.avatar,
+    if (groupId) {
+      realtime.send({
+        type: 'GROUP_CALL_INVITE',
+        groupId,
+        groupName,
+        groupAvatar,
+        callerId: currentUser.id,
+        callerName: currentUser.name,
+        callerAvatar: currentUser.avatar,
+        callType: type,
+        roomId,
+        sessionId,
+      });
+    } else {
+      realtime.send({
+        type: 'CALL_INVITE',
+        targetUserId: user.id,
+        callerId: currentUser.id,
+        callerName: currentUser.name,
+        callerAvatar: currentUser.avatar,
+        callType: type,
+        roomId,
+        sessionId,
+      });
+    }
+
+    setActiveRealCall({
+      targetUser: user,
       callType: type,
       roomId,
+      role: 'caller',
       sessionId,
+      isGroupCall: Boolean(groupId),
+      groupId,
+      groupName,
+      groupAvatar,
     });
-
-    setActiveRealCall({ targetUser: user, callType: type, roomId, role: 'caller', sessionId });
   };
 
   const handleAcceptIncomingCall = () => {
     if (!incomingCall) return;
-    realtime.send({ type: 'CALL_ACCEPT', targetUserId: incomingCall.fromUserId, roomId: incomingCall.roomId });
+    if (incomingCall.isGroupCall) {
+      realtime.send({
+        type: 'GROUP_CALL_JOIN',
+        groupId: incomingCall.groupId,
+        roomId: incomingCall.roomId,
+        userId: currentUser.id,
+      });
+    } else {
+      realtime.send({ type: 'CALL_ACCEPT', targetUserId: incomingCall.fromUserId, roomId: incomingCall.roomId });
+    }
     setActiveRealCall({
       targetUser: incomingCall.fromUser,
       callType: incomingCall.callType,
       roomId: incomingCall.roomId,
       role: 'callee',
       sessionId: incomingCall.sessionId,
+      isGroupCall: incomingCall.isGroupCall,
+      groupId: incomingCall.groupId,
+      groupName: incomingCall.groupName,
+      groupAvatar: incomingCall.groupAvatar,
     });
     setIncomingCall(null);
   };
 
   const handleDeclineIncomingCall = () => {
     if (!incomingCall) return;
-    realtime.send({ type: 'CALL_DECLINE', targetUserId: incomingCall.fromUserId, roomId: incomingCall.roomId });
+    if (!incomingCall.isGroupCall) {
+      realtime.send({ type: 'CALL_DECLINE', targetUserId: incomingCall.fromUserId, roomId: incomingCall.roomId });
+    }
     if (incomingCall.sessionId) {
       api.updateCallStatus(incomingCall.sessionId, 'declined').catch(() => { });
     }
@@ -452,6 +511,21 @@ export default function App() {
           callType: msg.callType,
           roomId: msg.roomId,
           sessionId: msg.sessionId,
+        });
+      } else if (msg.type === 'GROUP_CALL_INVITE') {
+        if (activeRealCall || incomingCall) {
+          return; // busy
+        }
+        setIncomingCall({
+          fromUserId: msg.callerId,
+          fromUser: { id: msg.callerId, name: msg.callerName, avatar: msg.callerAvatar, isOnline: true },
+          callType: msg.callType || 'audio',
+          roomId: msg.roomId,
+          sessionId: msg.sessionId,
+          isGroupCall: true,
+          groupId: msg.groupId,
+          groupName: msg.groupName,
+          groupAvatar: msg.groupAvatar,
         });
       } else if (msg.type === 'CALL_END') {
         // Caller hung up/cancelled while we were still looking at the ringing prompt.
@@ -1107,6 +1181,11 @@ export default function App() {
           roomId={activeRealCall.roomId}
           role={activeRealCall.role}
           sessionId={activeRealCall.sessionId}
+          isGroupCall={activeRealCall.isGroupCall}
+          groupId={activeRealCall.groupId}
+          groupName={activeRealCall.groupName}
+          groupAvatar={activeRealCall.groupAvatar}
+          currentUser={currentUser}
           onClose={() => setActiveRealCall(null)}
         />
       )}
@@ -1118,6 +1197,9 @@ export default function App() {
           callType={incomingCall.callType}
           onAccept={handleAcceptIncomingCall}
           onDecline={handleDeclineIncomingCall}
+          isGroupCall={incomingCall.isGroupCall}
+          groupName={incomingCall.groupName}
+          groupAvatar={incomingCall.groupAvatar}
         />
       )}
 

@@ -1,4 +1,4 @@
-import { Post, Story, Group, GroupMember, User, ReactionType, NotificationItem, DirectMessage, EventItem, EventMember, SupportMessage, UserSettings, FriendStatusInfo, FriendRequestItem } from '../types';
+import { Post, Story, Group, GroupMember, User, ReactionType, NotificationItem, DirectMessage, GroupChat, GroupChatMessage, EventItem, EventMember, SupportMessage, UserSettings, FriendStatusInfo, FriendRequestItem } from '../types';
 
 const API_BASE = (((import.meta as any).env?.VITE_API_URL as string) || 'https://connect-hub-api.fastapicloud.dev').replace(/\/$/, '');
 const API_URL = `${API_BASE}/api/v1`;
@@ -346,6 +346,78 @@ class ApiService {
     });
   }
 
+  // --- GROUP CHAT ---
+  async createGroupChat(data: {
+    name: string;
+    avatar?: string;
+    description?: string;
+    memberIds?: string[];
+  }): Promise<GroupChat> {
+    return this.request<GroupChat>('/chat/groups', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getGroupChats(): Promise<GroupChat[]> {
+    return this.request<GroupChat[]>('/chat/groups');
+  }
+
+  async getGroupChat(groupId: string): Promise<GroupChat> {
+    return this.request<GroupChat>(`/chat/groups/${groupId}`);
+  }
+
+  async updateGroupChat(
+    groupId: string,
+    data: { name?: string; avatar?: string; description?: string }
+  ): Promise<GroupChat> {
+    return this.request<GroupChat>(`/chat/groups/${groupId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async inviteGroupChatMembers(groupId: string, memberIds: string[]): Promise<GroupChat> {
+    return this.request<GroupChat>(`/chat/groups/${groupId}/invite`, {
+      method: 'POST',
+      body: JSON.stringify({ memberIds }),
+    });
+  }
+
+  async joinGroupChatByCode(inviteCode: string): Promise<GroupChat> {
+    return this.request<GroupChat>(`/chat/groups/join/${inviteCode}`, {
+      method: 'POST',
+    });
+  }
+
+  async leaveGroupChat(groupId: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/chat/groups/${groupId}/leave`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getGroupMessages(groupId: string, skip = 0, limit = 100): Promise<GroupChatMessage[]> {
+    return this.request<GroupChatMessage[]>(`/chat/groups/${groupId}/messages?skip=${skip}&limit=${limit}`);
+  }
+
+  async sendGroupMessage(
+    groupId: string,
+    payload: string | {
+      text?: string;
+      messageType?: string;
+      mediaUrl?: string;
+      fileName?: string;
+      fileSize?: string;
+      duration?: string;
+    }
+  ): Promise<GroupChatMessage> {
+    const body = typeof payload === 'string' ? { text: payload } : payload;
+    return this.request<GroupChatMessage>(`/chat/groups/${groupId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
   getChatWebSocketUrl(userId: string): string {
     const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = API_BASE.replace(/^https?:\/\//, '');
@@ -354,10 +426,16 @@ class ApiService {
   }
 
   // --- CALLS & PEERJS ---
-  async initiateCall(receiverId: string, callType: 'audio' | 'video'): Promise<{
+  async initiateCall(
+    receiverId?: string,
+    callType: 'audio' | 'video' = 'audio',
+    groupId?: string
+  ): Promise<{
     id: string;
     callerId: string;
-    receiverId: string;
+    receiverId?: string;
+    groupId?: string;
+    isGroupCall?: boolean;
     roomId: string;
     callType: 'audio' | 'video';
     status: string;
@@ -365,7 +443,7 @@ class ApiService {
   }> {
     return this.request('/calls/initiate', {
       method: 'POST',
-      body: JSON.stringify({ receiverId, callType }),
+      body: JSON.stringify({ receiverId, callType, groupId }),
     });
   }
 

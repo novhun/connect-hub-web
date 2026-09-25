@@ -20,9 +20,11 @@ import {
   Image as ImageIcon, 
   AlertCircle,
   X,
-  Film
+  Film,
+  Info,
+  Plus
 } from 'lucide-react';
-import { User, DirectMessage } from '../../types';
+import { User, DirectMessage, GroupChat } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { api } from '../../services/api';
 import { friendsApi } from '../../modules/friends/api';
@@ -30,6 +32,8 @@ import { realtime, RealtimeMessage } from '../../services/realtime';
 import { getYouTubeVideoId, extractUrls, isVideoFile } from '../../utils/mediaHelpers';
 import { VideoEmbedPlayer } from '../VideoEmbedPlayer';
 import { MediaViewerModal } from '../MediaViewerModal';
+import { CreateGroupChatModal } from '../CreateGroupChatModal';
+import { GroupChatInfoModal } from '../GroupChatInfoModal';
 
 interface ChatContact {
   user: User;
@@ -41,7 +45,7 @@ interface ChatContact {
 interface MessagesViewProps {
   onlineMembers?: User[];
   currentUser: User;
-  onStartCall: (user: User, type: 'audio' | 'video') => void;
+  onStartCall: (user: User, type: 'audio' | 'video', groupId?: string, group?: GroupChat) => void;
   onNavigate?: (tab: string) => void;
 }
 
@@ -189,9 +193,16 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
 }) => {
   const { t, language } = useLanguage();
   const [contacts, setContacts] = useState<ChatContact[]>([]);
+  const [groupChats, setGroupChats] = useState<GroupChat[]>([]);
+  const [activeTabFilter, setActiveTabFilter] = useState<'all' | 'direct' | 'groups'>('all');
   const [loadingContacts, setLoadingContacts] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Active chat state: either direct user or group chat
+  const [activeChatType, setActiveChatType] = useState<'direct' | 'group'>('group');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<GroupChat | null>(null);
+
   const [inputText, setInputText] = useState('');
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -199,6 +210,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [showStickers, setShowStickers] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // Modals
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
+  const [isGroupInfoOpen, setIsGroupInfoOpen] = useState(false);
 
   // Lightbox Media Viewer State
   const [lightboxMedia, setLightboxMedia] = useState<{ url: string; fileName?: string } | null>(null);
@@ -225,21 +240,23 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch confirmed friends + all users who have ever chatted with currentUser
-  const fetchContacts = async () => {
+  // Fetch confirmed friends + conversations + group chats
+  const fetchContactsAndGroups = async () => {
     try {
       setLoadingContacts(true);
-      const [friendsRes, convsRes] = await Promise.allSettled([
+      const [friendsRes, convsRes, groupsRes] = await Promise.allSettled([
         friendsApi.getFriends(),
         api.getConversations(),
+        api.getGroupChats(),
       ]);
 
       const friendsList: User[] = friendsRes.status === 'fulfilled' && Array.isArray(friendsRes.value) ? friendsRes.value : [];
       const convsList = convsRes.status === 'fulfilled' && Array.isArray(convsRes.value) ? convsRes.value : [];
+      const groupsList: GroupChat[] = groupsRes.status === 'fulfilled' && Array.isArray(groupsRes.value) ? groupsRes.value : [];
+
+      setGroupChats(groupsList);
 
       const contactsMap = new Map<string, ChatContact>();
-
-      // 1. Add all users who have ever chatted with currentUser
       for (const conv of convsList) {
         if (conv?.user?.id && conv.user.id !== currentUser.id) {
           contactsMap.set(conv.user.id, {
@@ -251,26 +268,31 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
         }
       }
 
-      // 2. Add all confirmed friends (if not already in map)
       for (const friend of friendsList) {
-        if (friend.id && friend.id !== currentUser.id) {
-          if (!contactsMap.has(friend.id)) {
-            contactsMap.set(friend.id, {
-              user: friend,
-            });
-          }
+        if (friend.id && friend.id !== currentUser.id && !contactsMap.has(friend.id)) {
+          contactsMap.set(friend.id, {
+            user: friend,
+          });
         }
       }
 
       const combined = Array.from(contactsMap.values());
       setContacts(combined);
 
-      // Auto-select first contact if none currently selected
-      if (combined.length > 0 && !selectedUser) {
-        setSelectedUser(combined[0].user);
+      // Auto-select first chat if none selected
+      if (!selectedUser && !selectedGroup) {
+        if (groupsList.length > 0) {
+          setSelectedGroup(groupsList[0]);
+          setSelectedUser(null);
+          setActiveChatType('group');
+        } else if (combined.length > 0) {
+          setSelectedUser(combined[0].user);
+          setSelectedGroup(null);
+          setActiveChatType('direct');
+        }
       }
     } catch (e) {
-      console.warn('Fetch contacts notice:', e);
+      console.warn('Fetch contacts & groups notice:', e);
       setContacts([]);
     } finally {
       setLoadingContacts(false);
@@ -278,30 +300,52 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   };
 
   useEffect(() => {
-    fetchContacts();
+    fetchContactsAndGroups();
   }, []);
 
-  // Fetch messages from API whenever selected user changes
-  const fetchMessages = async (userId: string) => {
-    if (!userId) return;
-    try {
-      setLoadingMessages(true);
-      const data = await api.getMessages(userId);
-      setMessages(data || []);
-      // Mark read
-      api.markChatRead(userId).catch(() => {});
-    } catch (e) {
-      console.warn('Could not fetch messages from API, keeping local state:', e);
-    } finally {
-      setLoadingMessages(false);
+  // Fetch messages from API whenever active chat changes
+  const fetchMessages = async () => {
+    if (activeChatType === 'group' && selectedGroup?.id) {
+      try {
+        setLoadingMessages(true);
+        const data = await api.getGroupMessages(selectedGroup.id);
+        const mapped: DirectMessage[] = (data || []).map((m) => ({
+          id: m.id,
+          senderId: m.senderId,
+          text: m.text,
+          timestamp: m.timestamp,
+          isMe: m.isMe,
+          messageType: m.messageType as any,
+          mediaUrl: m.mediaUrl,
+          fileName: m.fileName,
+          fileSize: m.fileSize,
+          duration: m.duration,
+          senderName: m.sender?.name,
+          senderAvatar: m.sender?.avatar,
+        }));
+        setMessages(mapped);
+      } catch (e) {
+        console.warn('Could not fetch group messages from API:', e);
+      } finally {
+        setLoadingMessages(false);
+      }
+    } else if (activeChatType === 'direct' && selectedUser?.id) {
+      try {
+        setLoadingMessages(true);
+        const data = await api.getMessages(selectedUser.id);
+        setMessages(data || []);
+        api.markChatRead(selectedUser.id).catch(() => {});
+      } catch (e) {
+        console.warn('Could not fetch direct messages from API:', e);
+      } finally {
+        setLoadingMessages(false);
+      }
     }
   };
 
   useEffect(() => {
-    if (selectedUser?.id) {
-      fetchMessages(selectedUser.id);
-    }
-  }, [selectedUser?.id]);
+    fetchMessages();
+  }, [activeChatType, selectedUser?.id, selectedGroup?.id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -311,7 +355,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   useEffect(() => {
     const unsubscribe = realtime.subscribe((msg: RealtimeMessage) => {
       if (msg.type === 'NEW_MESSAGE' && msg.message) {
-        if (msg.message.senderId === selectedUser?.id) {
+        if (activeChatType === 'direct' && msg.message.senderId === selectedUser?.id) {
           setMessages((prev) => [...prev, msg.message]);
         }
         // Update contact last message preview
@@ -333,13 +377,53 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
             return c;
           })
         );
+      } else if (msg.type === 'NEW_GROUP_MESSAGE' && msg.message) {
+        if (activeChatType === 'group' && selectedGroup?.id === msg.groupId) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              ...msg.message,
+              senderName: msg.message.sender?.name,
+              senderAvatar: msg.message.sender?.avatar,
+            },
+          ]);
+        }
+        // Update group last message preview
+        setGroupChats((prev) =>
+          prev.map((g) =>
+            g.id === msg.groupId
+              ? {
+                  ...g,
+                  lastMessage: msg.message.text || (msg.message.fileName ? `📎 ${msg.message.fileName}` : 'Media'),
+                  lastMessageSender: msg.message.sender?.name,
+                  lastTimestamp: msg.message.timestamp,
+                }
+              : g
+          )
+        );
+      } else if (msg.type === 'GROUP_CREATED' && msg.group) {
+        setGroupChats((prev) => [msg.group, ...prev.filter((g) => g.id !== msg.group.id)]);
+      } else if (msg.type === 'GROUP_MEMBERS_UPDATED' && msg.group) {
+        setGroupChats((prev) => prev.map((g) => (g.id === msg.group.id ? msg.group : g)));
+        if (selectedGroup?.id === msg.group.id) {
+          setSelectedGroup(msg.group);
+        }
       }
     });
     return unsubscribe;
-  }, [selectedUser?.id]);
+  }, [activeChatType, selectedUser?.id, selectedGroup?.id, t]);
 
   const handleSelectMember = (member: User) => {
     setSelectedUser(member);
+    setSelectedGroup(null);
+    setActiveChatType('direct');
+    setIsMobileThreadActive(true);
+  };
+
+  const handleSelectGroup = (group: GroupChat) => {
+    setSelectedGroup(group);
+    setSelectedUser(null);
+    setActiveChatType('group');
     setIsMobileThreadActive(true);
   };
 
@@ -352,49 +436,101 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     fileSize?: string;
     duration?: string;
   }) => {
-    if (!selectedUser?.id) return;
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    
-    const tempMsg: DirectMessage = {
-      id: `msg-${Date.now()}`,
-      senderId: currentUser.id,
-      text: payload.text || '',
-      timestamp: timeStr,
-      isMe: true,
-      messageType: payload.messageType || 'text',
-      mediaUrl: payload.mediaUrl,
-      fileName: payload.fileName,
-      fileSize: payload.fileSize,
-      duration: payload.duration,
-    };
-    setMessages((prev) => [...prev, tempMsg]);
 
-    // Update contacts list preview
-    const previewText = payload.messageType === 'voice' 
-      ? `🎤 ${t('messages.voiceMessage')}`
-      : payload.messageType === 'sticker' 
-      ? `✨ ${payload.text || t('messages.stickers')}`
-      : payload.messageType === 'file' 
-      ? `📎 ${payload.fileName || 'File'}`
-      : payload.text || '';
+    if (activeChatType === 'group' && selectedGroup?.id) {
+      const tempMsg: DirectMessage = {
+        id: `msg-${Date.now()}`,
+        senderId: currentUser.id,
+        text: payload.text || '',
+        timestamp: timeStr,
+        isMe: true,
+        messageType: payload.messageType || 'text',
+        mediaUrl: payload.mediaUrl,
+        fileName: payload.fileName,
+        fileSize: payload.fileSize,
+        duration: payload.duration,
+        senderName: currentUser.name,
+        senderAvatar: currentUser.avatar,
+      };
+      setMessages((prev) => [...prev, tempMsg]);
 
-    setContacts((prev) =>
-      prev.map((c) =>
-        c.user.id === selectedUser.id
-          ? { ...c, lastMessage: previewText, lastTimestamp: timeStr }
-          : c
-      )
-    );
+      const previewText = payload.messageType === 'voice' 
+        ? `🎤 ${t('messages.voiceMessage')}`
+        : payload.messageType === 'sticker' 
+        ? `✨ ${payload.text || t('messages.stickers')}`
+        : payload.messageType === 'file' 
+        ? `📎 ${payload.fileName || 'File'}`
+        : payload.text || '';
 
-    try {
-      const serverMsg = await api.sendMessage(selectedUser.id, payload);
-      if (serverMsg) {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === tempMsg.id ? serverMsg : m))
-        );
+      setGroupChats((prev) =>
+        prev.map((g) =>
+          g.id === selectedGroup.id
+            ? { ...g, lastMessage: previewText, lastMessageSender: currentUser.name, lastTimestamp: timeStr }
+            : g
+        )
+      );
+
+      try {
+        const serverMsg = await api.sendGroupMessage(selectedGroup.id, payload);
+        if (serverMsg) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === tempMsg.id
+                ? {
+                    ...serverMsg,
+                    senderName: serverMsg.sender?.name || currentUser.name,
+                    senderAvatar: serverMsg.sender?.avatar || currentUser.avatar,
+                  }
+                : m
+            )
+          );
+        }
+      } catch (e) {
+        console.warn('Group message send notice:', e);
       }
-    } catch (e) {
-      console.warn('Message send failed on API:', e);
+    } else if (activeChatType === 'direct' && selectedUser?.id) {
+      const tempMsg: DirectMessage = {
+        id: `msg-${Date.now()}`,
+        senderId: currentUser.id,
+        text: payload.text || '',
+        timestamp: timeStr,
+        isMe: true,
+        messageType: payload.messageType || 'text',
+        mediaUrl: payload.mediaUrl,
+        fileName: payload.fileName,
+        fileSize: payload.fileSize,
+        duration: payload.duration,
+      };
+      setMessages((prev) => [...prev, tempMsg]);
+
+      // Update contacts list preview
+      const previewText = payload.messageType === 'voice' 
+        ? `🎤 ${t('messages.voiceMessage')}`
+        : payload.messageType === 'sticker' 
+        ? `✨ ${payload.text || t('messages.stickers')}`
+        : payload.messageType === 'file' 
+        ? `📎 ${payload.fileName || 'File'}`
+        : payload.text || '';
+
+      setContacts((prev) =>
+        prev.map((c) =>
+          c.user.id === selectedUser.id
+            ? { ...c, lastMessage: previewText, lastTimestamp: timeStr }
+            : c
+        )
+      );
+
+      try {
+        const serverMsg = await api.sendMessage(selectedUser.id, payload);
+        if (serverMsg) {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === tempMsg.id ? serverMsg : m))
+          );
+        }
+      } catch (e) {
+        console.warn('Message send failed on API:', e);
+      }
     }
   };
 
@@ -537,24 +673,34 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     audioChunksRef.current = [];
   };
 
-  // Filter contacts based on search query
+  // Filter contacts and groups based on search query
   const filteredContacts = contacts.filter((c) =>
     c.user.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  const filteredGroups = groupChats.filter((g) =>
+    g.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const hasActiveChat = (activeChatType === 'group' && selectedGroup) || (activeChatType === 'direct' && selectedUser);
 
   return (
-    <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xs border border-gray-200 overflow-hidden flex h-[75vh] sm:h-[78vh] relative">
+    <div className="max-w-4xl mx-auto bg-white dark:bg-slate-900 rounded-2xl shadow-xs border border-gray-200 dark:border-slate-800 overflow-hidden flex h-[75vh] sm:h-[78vh] relative">
       {/* Left conversation list */}
-      <div className={`${isMobileThreadActive ? 'hidden md:flex' : 'flex'} w-full md:w-80 border-r border-gray-200 flex-col`}>
-        <div className="p-3.5 sm:p-4 border-b border-gray-100">
-          <div className="flex items-center justify-between mb-2.5">
-            <h2 className="font-bold text-gray-900 text-base sm:text-lg">{t('messages.chats')}</h2>
-            {contacts.length > 0 && (
-              <span className="text-[11px] font-semibold text-gray-400">
-                {contacts.length} {language === 'km' ? 'ការសន្ទនា' : 'Chats'}
-              </span>
-            )}
+      <div className={`${isMobileThreadActive ? 'hidden md:flex' : 'flex'} w-full md:w-80 border-r border-gray-200 dark:border-slate-800 flex-col bg-white dark:bg-slate-900`}>
+        <div className="p-3.5 sm:p-4 border-b border-gray-100 dark:border-slate-800">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-bold text-gray-900 dark:text-white text-base sm:text-lg">{t('messages.chats')}</h2>
+            <button
+              onClick={() => setIsCreateGroupOpen(true)}
+              className="p-1.5 px-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+              title={language === 'km' ? 'បង្កើតក្រុមថ្មី' : 'Create new group chat'}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>{language === 'km' ? 'ក្រុមថ្មី' : 'New Group'}</span>
+            </button>
           </div>
+
+          {/* Search Box */}
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -562,137 +708,303 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t('messages.searchMessenger')}
-              className="w-full bg-gray-100 rounded-full py-1.5 pl-9 pr-3 text-xs outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 transition-all"
+              className="w-full bg-gray-100 dark:bg-slate-800 rounded-full py-1.5 pl-9 pr-3 text-xs outline-none focus:bg-white dark:focus:bg-slate-800/90 focus:ring-1 focus:ring-blue-500 text-slate-900 dark:text-white transition-all"
             />
+          </div>
+
+          {/* Tabs: All / Direct / Groups */}
+          <div className="flex items-center gap-1 mt-2.5 bg-gray-100 dark:bg-slate-800 p-1 rounded-xl">
+            <button
+              onClick={() => setActiveTabFilter('all')}
+              className={`flex-1 py-1 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
+                activeTabFilter === 'all'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-white shadow-2xs'
+                  : 'text-gray-500 hover:text-gray-900 dark:text-gray-400'
+              }`}
+            >
+              {language === 'km' ? 'ទាំងអស់' : 'All'}
+            </button>
+            <button
+              onClick={() => setActiveTabFilter('direct')}
+              className={`flex-1 py-1 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
+                activeTabFilter === 'direct'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-white shadow-2xs'
+                  : 'text-gray-500 hover:text-gray-900 dark:text-gray-400'
+              }`}
+            >
+              {language === 'km' ? 'ផ្ទាល់ខ្លួន' : 'Direct'}
+            </button>
+            <button
+              onClick={() => setActiveTabFilter('groups')}
+              className={`flex-1 py-1 text-[11px] font-semibold rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                activeTabFilter === 'groups'
+                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-white shadow-2xs'
+                  : 'text-gray-500 hover:text-gray-900 dark:text-gray-400'
+              }`}
+            >
+              <span>{language === 'km' ? 'ក្រុម' : 'Groups'}</span>
+              {groupChats.length > 0 && (
+                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-600 dark:text-blue-300 font-bold">
+                  {groupChats.length}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
+        <div className="flex-1 overflow-y-auto divide-y divide-gray-50 dark:divide-slate-800/60">
           {loadingContacts ? (
             <div className="py-12 flex flex-col items-center justify-center text-gray-400 gap-2">
               <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
               <span className="text-xs">{t('messages.loadingChats')}</span>
             </div>
-          ) : filteredContacts.length === 0 ? (
-            <div className="p-6 text-center space-y-3">
-              <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
-                <Users className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-gray-800">{t('messages.noFriendsTitle')}</h4>
-                <p className="text-[11px] text-gray-400 mt-1">
-                  {t('messages.noFriendsDesc')}
-                </p>
-              </div>
-              <button
-                onClick={() => onNavigate?.('friends')}
-                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                <span>{t('messages.findFriends')}</span>
-              </button>
-            </div>
           ) : (
-            filteredContacts.map((contact) => {
-              const member = contact.user;
-              const isSelected = selectedUser?.id === member.id;
-              return (
-                <div
-                  key={member.id}
-                  onClick={() => handleSelectMember(member)}
-                  className={`p-3 sm:p-3.5 flex items-center gap-3 cursor-pointer transition-colors ${
-                    isSelected ? 'bg-blue-50/70' : 'hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="relative shrink-0">
-                    <img
-                      src={api.getMediaUrl(member.avatar)}
-                      alt={member.name}
-                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover border border-gray-200"
-                    />
-                    <span
-                      className={`absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 border-white ${
-                        member.isOnline ? 'bg-green-500' : 'bg-gray-300'
+            <>
+              {/* Render Groups (if activeTabFilter === 'all' or 'groups') */}
+              {(activeTabFilter === 'all' || activeTabFilter === 'groups') &&
+                filteredGroups.map((group) => {
+                  const isSelected = activeChatType === 'group' && selectedGroup?.id === group.id;
+                  return (
+                    <div
+                      key={group.id}
+                      onClick={() => handleSelectGroup(group)}
+                      className={`p-3 sm:p-3.5 flex items-center gap-3 cursor-pointer transition-colors ${
+                        isSelected ? 'bg-blue-50/80 dark:bg-blue-950/40 border-l-4 border-blue-600' : 'hover:bg-gray-50 dark:hover:bg-slate-800/40'
                       }`}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-semibold text-xs sm:text-sm text-gray-900 truncate">{member.name}</h4>
-                      {contact.lastTimestamp && (
-                        <span className="text-[10px] text-gray-400 shrink-0 ml-1">
-                          {contact.lastTimestamp}
+                    >
+                      <div className="relative shrink-0">
+                        <img
+                          src={api.getMediaUrl(group.avatar)}
+                          alt={group.name}
+                          className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl object-cover border border-blue-200 dark:border-blue-900/60 shadow-2xs"
+                        />
+                        <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[9px] font-bold border border-white dark:border-slate-900 shadow-2xs">
+                          <Users className="w-2.5 h-2.5" />
                         </span>
-                      )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold text-xs sm:text-sm text-gray-900 dark:text-white truncate">
+                            {group.name}
+                          </h4>
+                          {group.lastTimestamp && (
+                            <span className="text-[10px] text-gray-400 shrink-0 ml-1">
+                              {group.lastTimestamp}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] sm:text-xs text-gray-500 dark:text-slate-400 truncate mt-0.5">
+                          {group.lastMessageSender ? (
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">
+                              {group.lastMessageSender}:{' '}
+                            </span>
+                          ) : null}
+                          {group.lastMessage || (language === 'km' ? 'ចាប់ផ្តើមការសន្ទនាក្រុម...' : 'Start group chat...')}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-[11px] sm:text-xs text-gray-500 truncate mt-0.5">
-                      {contact.lastMessage || t('messages.startConversation')}
+                  );
+                })}
+
+              {/* Render Direct Contacts (if activeTabFilter === 'all' or 'direct') */}
+              {(activeTabFilter === 'all' || activeTabFilter === 'direct') &&
+                filteredContacts.map((contact) => {
+                  const member = contact.user;
+                  const isSelected = activeChatType === 'direct' && selectedUser?.id === member.id;
+                  return (
+                    <div
+                      key={member.id}
+                      onClick={() => handleSelectMember(member)}
+                      className={`p-3 sm:p-3.5 flex items-center gap-3 cursor-pointer transition-colors ${
+                        isSelected ? 'bg-blue-50/70 dark:bg-blue-950/40 border-l-4 border-blue-600' : 'hover:bg-gray-50 dark:hover:bg-slate-800/40'
+                      }`}
+                    >
+                      <div className="relative shrink-0">
+                        <img
+                          src={api.getMediaUrl(member.avatar)}
+                          alt={member.name}
+                          className="w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover border border-gray-200 dark:border-slate-700"
+                        />
+                        <span
+                          className={`absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 border-white dark:border-slate-900 ${
+                            member.isOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-slate-600'
+                          }`}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold text-xs sm:text-sm text-gray-900 dark:text-white truncate">{member.name}</h4>
+                          {contact.lastTimestamp && (
+                            <span className="text-[10px] text-gray-400 shrink-0 ml-1">
+                              {contact.lastTimestamp}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] sm:text-xs text-gray-500 dark:text-slate-400 truncate mt-0.5">
+                          {contact.lastMessage || t('messages.startConversation')}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+
+              {/* Empty state when no chats exist */}
+              {filteredContacts.length === 0 && filteredGroups.length === 0 && (
+                <div className="p-6 text-center space-y-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-gray-800 dark:text-white">
+                      {activeTabFilter === 'groups'
+                        ? (language === 'km' ? 'មិនទាន់មានក្រុមនៅឡើយទេ' : 'No Group Chats')
+                        : t('messages.noFriendsTitle')}
+                    </h4>
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      {activeTabFilter === 'groups'
+                        ? (language === 'km' ? 'បង្កើតក្រុមថ្មីដើម្បីចាប់ផ្តើមជជែក និងហៅជាក្រុម' : 'Create a new group to chat and call together!')
+                        : t('messages.noFriendsDesc')}
                     </p>
                   </div>
+                  {activeTabFilter === 'groups' ? (
+                    <button
+                      onClick={() => setIsCreateGroupOpen(true)}
+                      className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>{language === 'km' ? 'បង្កើតក្រុម' : 'Create Group'}</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => onNavigate?.('friends')}
+                      className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>{t('messages.findFriends')}</span>
+                    </button>
+                  )}
                 </div>
-              );
-            })
+              )}
+            </>
           )}
         </div>
       </div>
 
       {/* Right chat thread */}
-      <div className={`${!isMobileThreadActive ? 'hidden md:flex' : 'flex'} flex-1 flex-col bg-[#f8fafc]`}>
-        {selectedUser ? (
+      <div className={`${!isMobileThreadActive ? 'hidden md:flex' : 'flex'} flex-1 flex-col bg-[#f8fafc] dark:bg-slate-950`}>
+        {hasActiveChat ? (
           <>
             {/* Chat header */}
-            <div className="p-3 sm:p-4 bg-white border-b border-gray-200 flex items-center justify-between">
+            <div className="p-3 sm:p-4 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                 {/* Mobile Back Button */}
                 <button
                   onClick={() => setIsMobileThreadActive(false)}
-                  className="md:hidden p-1.5 -ml-1 hover:bg-gray-100 rounded-full text-gray-600 cursor-pointer"
+                  className="md:hidden p-1.5 -ml-1 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full text-gray-600 dark:text-gray-300 cursor-pointer"
                   aria-label="Back to conversations"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
 
-                <div className="relative shrink-0">
-                  <img
-                    src={api.getMediaUrl(selectedUser.avatar)}
-                    alt={selectedUser.name}
-                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-gray-200"
-                  />
-                  <span
-                    className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
-                      selectedUser.isOnline ? 'bg-emerald-500 ring-1 ring-emerald-300/40' : 'bg-gray-300'
-                    }`}
-                  />
-                </div>
-                <div className="truncate">
-                  <h3 className="font-bold text-xs sm:text-sm text-gray-900 truncate">{selectedUser.name}</h3>
-                  <p className={`text-[11px] font-medium ${selectedUser.isOnline ? 'text-emerald-600' : 'text-gray-400'}`}>
-                    {selectedUser.isOnline ? (language === 'km' ? 'សកម្មឥឡូវនេះ' : 'Active now') : (language === 'km' ? 'ក្រៅបណ្ដាញ' : 'Offline')}
-                  </p>
-                </div>
+                {activeChatType === 'group' && selectedGroup ? (
+                  <>
+                    <div className="relative shrink-0 cursor-pointer" onClick={() => setIsGroupInfoOpen(true)}>
+                      <img
+                        src={api.getMediaUrl(selectedGroup.avatar)}
+                        alt={selectedGroup.name}
+                        className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl object-cover border border-blue-200 dark:border-blue-900 shadow-2xs"
+                      />
+                    </div>
+                    <div className="truncate cursor-pointer" onClick={() => setIsGroupInfoOpen(true)}>
+                      <h3 className="font-bold text-xs sm:text-sm text-gray-900 dark:text-white truncate flex items-center gap-1.5">
+                        {selectedGroup.name}
+                      </h3>
+                      <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                        👥 {selectedGroup.membersCount} {language === 'km' ? 'សមាជិក' : 'members'} ·{' '}
+                        <span className="text-emerald-600 font-semibold">
+                          {selectedGroup.members.filter((m) => m.user?.isOnline).length} {language === 'km' ? 'អនឡាញ' : 'online'}
+                        </span>
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  selectedUser && (
+                    <>
+                      <div className="relative shrink-0">
+                        <img
+                          src={api.getMediaUrl(selectedUser.avatar)}
+                          alt={selectedUser.name}
+                          className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-gray-200 dark:border-slate-700"
+                        />
+                        <span
+                          className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-slate-900 ${
+                            selectedUser.isOnline ? 'bg-emerald-500 ring-1 ring-emerald-300/40' : 'bg-gray-300 dark:bg-slate-600'
+                          }`}
+                        />
+                      </div>
+                      <div className="truncate">
+                        <h3 className="font-bold text-xs sm:text-sm text-gray-900 dark:text-white truncate">{selectedUser.name}</h3>
+                        <p className={`text-[11px] font-medium ${selectedUser.isOnline ? 'text-emerald-600' : 'text-gray-400'}`}>
+                          {selectedUser.isOnline ? (language === 'km' ? 'សកម្មឥឡូវនេះ' : 'Active now') : (language === 'km' ? 'ក្រៅបណ្ដាញ' : 'Offline')}
+                        </p>
+                      </div>
+                    </>
+                  )
+                )}
               </div>
 
+              {/* Call & Info Action Buttons */}
               <div className="flex items-center gap-1 sm:gap-2 shrink-0 ml-2">
-                <button
-                  onClick={() => onStartCall(selectedUser, 'audio')}
-                  className="p-2 hover:bg-gray-100 rounded-full text-green-600 transition-colors cursor-pointer"
-                  title={t('messages.audioCall')}
-                >
-                  <Phone className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => onStartCall(selectedUser, 'video')}
-                  className="p-2 hover:bg-gray-100 rounded-full text-blue-600 transition-colors cursor-pointer"
-                  title={t('messages.videoCall')}
-                >
-                  <Video className="w-4 h-4" />
-                </button>
+                {activeChatType === 'group' && selectedGroup ? (
+                  <>
+                    <button
+                      onClick={() => onStartCall(currentUser, 'audio', selectedGroup.id, selectedGroup)}
+                      className="p-2 hover:bg-green-50 dark:hover:bg-green-950/30 rounded-full text-green-600 dark:text-green-400 transition-colors cursor-pointer"
+                      title={language === 'km' ? 'ការហៅសំឡេងជាក្រុម' : 'Group Voice Call'}
+                    >
+                      <Phone className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => onStartCall(currentUser, 'video', selectedGroup.id, selectedGroup)}
+                      className="p-2 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-full text-blue-600 dark:text-blue-400 transition-colors cursor-pointer"
+                      title={language === 'km' ? 'ការហៅវីដេអូជាក្រុម' : 'Group Video Call'}
+                    >
+                      <Video className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setIsGroupInfoOpen(true)}
+                      className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full text-gray-500 dark:text-gray-300 transition-colors cursor-pointer"
+                      title={language === 'km' ? 'ព័ត៌មានក្រុម' : 'Group Details & Invite'}
+                    >
+                      <Info className="w-4 h-4" />
+                    </button>
+                  </>
+                ) : (
+                  selectedUser && (
+                    <>
+                      <button
+                        onClick={() => onStartCall(selectedUser, 'audio')}
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full text-green-600 transition-colors cursor-pointer"
+                        title={t('messages.audioCall')}
+                      >
+                        <Phone className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => onStartCall(selectedUser, 'video')}
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full text-blue-600 transition-colors cursor-pointer"
+                        title={t('messages.videoCall')}
+                      >
+                        <Video className="w-4 h-4" />
+                      </button>
+                    </>
+                  )
+                )}
               </div>
             </div>
 
             {/* Error Banner */}
             {uploadError && (
-              <div className="bg-red-50 border-b border-red-100 px-4 py-2 text-xs text-red-600 flex items-center justify-between">
+              <div className="bg-red-50 dark:bg-red-950/40 border-b border-red-100 dark:border-red-900/40 px-4 py-2 text-xs text-red-600 dark:text-red-400 flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
                   <span>{uploadError}</span>
@@ -712,15 +1024,33 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                 </div>
               ) : messages.length === 0 ? (
                 <div className="text-center py-12 text-xs text-gray-400 space-y-2">
-                  <MessageSquare className="w-8 h-8 text-gray-300 mx-auto" />
-                  <p>{t('messages.noMessages', { name: selectedUser.name })}</p>
+                  <MessageSquare className="w-8 h-8 text-gray-300 dark:text-slate-700 mx-auto" />
+                  <p>
+                    {activeChatType === 'group'
+                      ? (language === 'km' ? 'មិនទាន់មានសារនៅក្នុងក្រុមនេះទេ។ ចាប់ផ្តើមជជែកឥឡូវនេះ!' : 'No messages yet in this group chat. Start the conversation!')
+                      : t('messages.noMessages', { name: selectedUser?.name || 'User' })}
+                  </p>
                 </div>
               ) : (
                 messages.map((msg) => {
+                  // System Message
+                  if (msg.messageType === 'system') {
+                    return (
+                      <div key={msg.id} className="flex justify-center my-2">
+                        <span className="text-[11px] font-medium px-3.5 py-1 rounded-full bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300/40 dark:border-slate-700/60 shadow-2xs">
+                          {msg.text}
+                        </span>
+                      </div>
+                    );
+                  }
+
                   // Check if message text contains a video / YouTube URL
                   const urls = extractUrls(msg.text);
                   const firstYtOrVideoUrl = urls.find((u) => getYouTubeVideoId(u) || isVideoFile(u));
                   const isFileVideo = msg.messageType === 'file' && msg.mediaUrl && isVideoFile(msg.fileName || msg.mediaUrl);
+
+                  const senderAvatar = msg.senderAvatar || (selectedUser ? selectedUser.avatar : '');
+                  const senderName = msg.senderName || (selectedUser ? selectedUser.name : 'Member');
 
                   return (
                     <div
@@ -731,19 +1061,26 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                     >
                       {!msg.isMe && (
                         <img
-                          src={api.getMediaUrl(selectedUser.avatar)}
-                          alt={selectedUser.name}
-                          className="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover shrink-0 mt-1"
+                          src={api.getMediaUrl(senderAvatar)}
+                          alt={senderName}
+                          className="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover shrink-0 mt-1 bg-slate-200"
                         />
                       )}
                       <div className="flex flex-col">
+                        {/* In group chat, show sender name above bubble if not me */}
+                        {!msg.isMe && activeChatType === 'group' && (
+                          <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 mb-0.5 ml-1">
+                            {senderName}
+                          </span>
+                        )}
+
                         {/* Voice Message Bubble */}
                         {msg.messageType === 'voice' && msg.mediaUrl ? (
                           <div
                             className={`rounded-2xl shadow-2xs ${
                               msg.isMe
                                 ? 'bg-[#2563eb] text-white rounded-br-xs'
-                                : 'bg-white text-gray-800 border border-gray-200 rounded-bl-xs'
+                                : 'bg-white dark:bg-slate-900 text-gray-800 dark:text-slate-100 border border-gray-200 dark:border-slate-800 rounded-bl-xs'
                             }`}
                           >
                             <VoiceMessagePlayer url={msg.mediaUrl} duration={msg.duration} isMe={msg.isMe} />
@@ -753,7 +1090,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                             {msg.text}
                           </div>
                         ) : msg.messageType === 'image' && msg.mediaUrl ? (
-                          <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-2xs max-w-[260px] bg-black/5">
+                          <div className="rounded-2xl overflow-hidden border border-gray-200 dark:border-slate-800 shadow-2xs max-w-[260px] bg-black/5">
                             <img
                               src={api.getMediaUrl(msg.mediaUrl)}
                               alt="Uploaded visual"
@@ -776,10 +1113,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                             className={`p-3 rounded-2xl border flex items-center gap-3 max-w-sm ${
                               msg.isMe
                                 ? 'bg-[#2563eb] text-white border-blue-600 rounded-br-xs'
-                                : 'bg-white text-gray-800 border-gray-200 rounded-bl-xs shadow-2xs'
+                                : 'bg-white dark:bg-slate-900 text-gray-800 dark:text-slate-100 border-gray-200 dark:border-slate-800 rounded-bl-xs shadow-2xs'
                             }`}
                           >
-                            <div className={`p-2.5 rounded-xl ${msg.isMe ? 'bg-white/20' : 'bg-blue-50 text-blue-600'}`}>
+                            <div className={`p-2.5 rounded-xl ${msg.isMe ? 'bg-white/20' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'}`}>
                               <FileText className="w-5 h-5" />
                             </div>
                             <div className="flex-1 min-w-0">
@@ -794,7 +1131,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                               rel="noopener noreferrer"
                               download={msg.fileName || 'file'}
                               className={`p-2 rounded-lg transition-colors ${
-                                msg.isMe ? 'hover:bg-white/20 text-white' : 'hover:bg-gray-100 text-gray-600'
+                                msg.isMe ? 'hover:bg-white/20 text-white' : 'hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-600 dark:text-gray-300'
                               }`}
                               title={t('messages.downloadFile')}
                             >
@@ -808,7 +1145,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                               className={`p-2.5 sm:p-3 rounded-2xl text-xs sm:text-sm whitespace-pre-wrap break-words ${
                                 msg.isMe
                                   ? 'bg-[#2563eb] text-white rounded-br-xs'
-                                  : 'bg-white text-gray-800 border border-gray-200 rounded-bl-xs shadow-2xs'
+                                  : 'bg-white dark:bg-slate-900 text-gray-800 dark:text-slate-100 border border-gray-200 dark:border-slate-800 rounded-bl-xs shadow-2xs'
                               }`}
                             >
                               {msg.text}
@@ -849,16 +1186,16 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
             {showStickers && (
               <div
                 ref={stickerPickerRef}
-                className="mx-3 mb-2 bg-white rounded-2xl shadow-xl border border-gray-200 p-3 z-30 animate-in fade-in zoom-in-95 duration-150"
+                className="mx-3 mb-2 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-gray-200 dark:border-slate-800 p-3 z-30 animate-in fade-in zoom-in-95 duration-150"
               >
-                <div className="flex items-center justify-between pb-2 border-b border-gray-100 mb-2">
-                  <h4 className="font-bold text-xs text-gray-800 flex items-center gap-1.5">
+                <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-slate-800 mb-2">
+                  <h4 className="font-bold text-xs text-gray-800 dark:text-white flex items-center gap-1.5">
                     <Smile className="w-4 h-4 text-amber-500" />
                     <span>{t('messages.stickers')}</span>
                   </h4>
                   <button
                     onClick={() => setShowStickers(false)}
-                    className="p-1 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 cursor-pointer"
+                    className="p-1 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -868,7 +1205,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                     <button
                       key={sticker.id}
                       onClick={() => handleSendSticker(sticker)}
-                      className="text-2xl sm:text-3xl p-2 rounded-xl hover:bg-blue-50 hover:scale-125 transition-all cursor-pointer flex items-center justify-center"
+                      className="text-2xl sm:text-3xl p-2 rounded-xl hover:bg-blue-50 dark:hover:bg-slate-800 hover:scale-125 transition-all cursor-pointer flex items-center justify-center"
                       title={sticker.name}
                     >
                       {sticker.emoji}
@@ -880,10 +1217,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
 
             {/* Live Voice Recording Bar or Standard Input */}
             {isRecording ? (
-              <div className="p-2.5 sm:p-3 bg-red-50/80 border-t border-red-200 flex items-center justify-between gap-3 animate-in fade-in duration-150">
+              <div className="p-2.5 sm:p-3 bg-red-50/80 dark:bg-red-950/40 border-t border-red-200 dark:border-red-900 flex items-center justify-between gap-3 animate-in fade-in duration-150">
                 <div className="flex items-center gap-2.5">
                   <div className="w-3 h-3 rounded-full bg-red-500 animate-ping" />
-                  <span className="text-xs font-semibold text-red-600">
+                  <span className="text-xs font-semibold text-red-600 dark:text-red-400">
                     {t('messages.recording')} ({Math.floor(recordingSeconds / 60)}:{recordingSeconds % 60 < 10 ? '0' : ''}{recordingSeconds % 60})
                   </span>
                 </div>
@@ -891,7 +1228,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                   <button
                     type="button"
                     onClick={cancelRecording}
-                    className="px-3 py-1.5 bg-white hover:bg-gray-100 text-gray-600 text-xs font-medium rounded-full border border-gray-200 flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                    className="px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-600 dark:text-gray-300 text-xs font-medium rounded-full border border-gray-200 dark:border-slate-700 flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
                   >
                     <Trash2 className="w-3.5 h-3.5 text-red-500" />
                     <span>{t('messages.cancelRecord')}</span>
@@ -907,13 +1244,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleSendText} className="p-2.5 sm:p-3 bg-white border-t border-gray-200 flex items-center gap-1.5 sm:gap-2 relative">
+              <form onSubmit={handleSendText} className="p-2.5 sm:p-3 bg-white dark:bg-slate-900 border-t border-gray-200 dark:border-slate-800 flex items-center gap-1.5 sm:gap-2 relative">
                 {/* Upload File Button (Max 70MB) */}
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploading}
-                  className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
+                  className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
                   title={t('messages.uploadFile')}
                 >
                   {isUploading ? (
@@ -928,7 +1265,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                   type="button"
                   onClick={() => setShowStickers(!showStickers)}
                   className={`p-2 rounded-full transition-colors cursor-pointer ${
-                    showStickers ? 'text-amber-500 bg-amber-50' : 'text-gray-500 hover:text-amber-500 hover:bg-gray-100'
+                    showStickers ? 'text-amber-500 bg-amber-50 dark:bg-amber-950/40' : 'text-gray-500 hover:text-amber-500 hover:bg-gray-100 dark:hover:bg-slate-800'
                   }`}
                   title={t('messages.stickers')}
                 >
@@ -940,8 +1277,12 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                   type="text"
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  placeholder={`${t('messages.typeMessage')} (${selectedUser.name})`}
-                  className="flex-1 bg-gray-100 focus:bg-white text-xs sm:text-sm text-gray-800 placeholder-gray-400 rounded-full px-3.5 sm:px-4 py-2 sm:py-2.5 border-none outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  placeholder={
+                    activeChatType === 'group' && selectedGroup
+                      ? `${t('messages.typeMessage')} (${selectedGroup.name})`
+                      : `${t('messages.typeMessage')} (${selectedUser?.name || 'Friend'})`
+                  }
+                  className="flex-1 bg-gray-100 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 text-xs sm:text-sm text-gray-800 dark:text-slate-100 placeholder-gray-400 rounded-full px-3.5 sm:px-4 py-2 sm:py-2.5 border-none outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                 />
 
                 {/* Voice Recording Button or Send Button */}
@@ -956,7 +1297,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                   <button
                     type="button"
                     onClick={startRecording}
-                    className="p-2 sm:p-2.5 bg-gray-100 hover:bg-red-50 text-gray-600 hover:text-red-500 rounded-full transition-colors cursor-pointer shrink-0"
+                    className="p-2 sm:p-2.5 bg-gray-100 dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-950/30 text-gray-600 dark:text-gray-300 hover:text-red-500 rounded-full transition-colors cursor-pointer shrink-0"
                     title={t('messages.voiceRecord')}
                   >
                     <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -966,24 +1307,35 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
             )}
           </>
         ) : (
-          /* Empty state when no friend is selected or no friends exist */
+          /* Empty state when no chat is selected */
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-gray-400 gap-3">
-            <div className="w-14 h-14 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+            <div className="w-14 h-14 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
               <MessageSquare className="w-7 h-7" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-gray-800">{t('messages.noFriendsSelected')}</h3>
+              <h3 className="text-sm font-bold text-gray-800 dark:text-white">
+                {language === 'km' ? 'សូមជ្រើសរើសការសន្ទនា' : 'Select a conversation'}
+              </h3>
               <p className="text-xs text-gray-400 max-w-sm mt-1">
-                {t('messages.noFriendsDesc')}
+                {language === 'km' ? 'ជ្រើសរើសមិត្តភក្ដិ ឬក្រុមជជែកដើម្បីផ្ញើសារ ឬបង្កើតក្រុមថ្មី' : 'Choose a friend or group chat from the left, or create a new group.'}
               </p>
             </div>
-            <button
-              onClick={() => onNavigate?.('friends')}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>{t('messages.findFriends')}</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsCreateGroupOpen(true)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>{language === 'km' ? 'បង្កើតក្រុមថ្មី' : 'New Group'}</span>
+              </button>
+              <button
+                onClick={() => onNavigate?.('friends')}
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>{t('messages.findFriends')}</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -996,6 +1348,43 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
           onClose={() => setLightboxMedia(null)}
         />
       )}
+
+      {/* Create Group Chat Modal */}
+      {isCreateGroupOpen && (
+        <CreateGroupChatModal
+          currentUser={currentUser}
+          onClose={() => setIsCreateGroupOpen(false)}
+          onGroupCreated={(newGroup) => {
+            setGroupChats((prev) => [newGroup, ...prev]);
+            setSelectedGroup(newGroup);
+            setSelectedUser(null);
+            setActiveChatType('group');
+            setIsMobileThreadActive(true);
+          }}
+        />
+      )}
+
+      {/* Group Chat Info & Invite Modal */}
+      {isGroupInfoOpen && selectedGroup && (
+        <GroupChatInfoModal
+          group={selectedGroup}
+          currentUser={currentUser}
+          onClose={() => setIsGroupInfoOpen(false)}
+          onGroupUpdated={(updated) => {
+            setSelectedGroup(updated);
+            setGroupChats((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
+          }}
+          onLeaveGroup={(groupId) => {
+            setGroupChats((prev) => prev.filter((g) => g.id !== groupId));
+            setSelectedGroup(null);
+            setActiveChatType('direct');
+          }}
+          onStartCall={(type) => {
+            onStartCall(currentUser, type, selectedGroup.id, selectedGroup);
+          }}
+        />
+      )}
     </div>
   );
 };
+
