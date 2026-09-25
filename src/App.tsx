@@ -42,7 +42,9 @@ import { useLanguage } from './context/LanguageContext';
 import { api } from './services/api';
 import { friendsApi } from './modules/friends/api';
 import { realtime, RealtimeMessage } from './services/realtime';
-import { unlockAudio } from './services/ringtone';
+import { unlockAudio, playNotificationSound } from './services/ringtone';
+import { Bell, X } from 'lucide-react';
+import { formatNotificationContent } from './utils/notificationHelpers';
 
 const DEFAULT_USER: User = {
   id: '',
@@ -218,6 +220,16 @@ export default function App() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [onlineMembers, setOnlineMembers] = useState<User[]>([]);
   const [friendRequestsCount, setFriendRequestsCount] = useState(0);
+  const [liveNotificationToast, setLiveNotificationToast] = useState<NotificationItem | null>(null);
+
+  // Auto-dismiss live notification toast after 6 seconds
+  useEffect(() => {
+    if (!liveNotificationToast) return;
+    const timer = setTimeout(() => {
+      setLiveNotificationToast(null);
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [liveNotificationToast]);
 
   // Modals state
   const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
@@ -575,6 +587,35 @@ export default function App() {
         setOnlineMembers((prev) =>
           prev.map((u) => (u.id === targetId ? { ...u, isOnline } : u))
         );
+      } else if (msg.type === 'NOTIFICATION' && msg.notification) {
+        const newNotif: NotificationItem = msg.notification;
+        setNotifications((prev) => [
+          newNotif,
+          ...prev.filter((n) => n.id !== newNotif.id),
+        ]);
+        setLiveNotificationToast(newNotif);
+        try {
+          playNotificationSound();
+        } catch (_) {}
+      } else if (msg.type === 'NOTIFICATION_READ' && msg.notificationId) {
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === msg.notificationId ? { ...n, isRead: true } : n))
+        );
+      } else if (msg.type === 'NOTIFICATIONS_ALL_READ') {
+        setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      } else if (msg.type === 'FRIEND_REQUEST_RECEIVED') {
+        setFriendRequestsCount((c) => c + 1);
+        try {
+          playNotificationSound();
+        } catch (_) {}
+      } else if (msg.type === 'FRIEND_REQUEST_ACCEPTED') {
+        setFriendRequestsCount((c) => Math.max(0, c - 1));
+        try {
+          playNotificationSound();
+        } catch (_) {}
+        friendsApi.getFriends().then((fr) => {
+          if (Array.isArray(fr)) setOnlineMembers(fr);
+        }).catch(() => {});
       }
     });
     return unsubscribe;
@@ -592,6 +633,16 @@ export default function App() {
     : posts;
 
   const unreadNotifsCount = notifications.filter((n) => !n.isRead).length;
+
+  // Dynamically update tab title with unread notifications count
+  useEffect(() => {
+    if (unreadNotifsCount > 0) {
+      document.title = `(${unreadNotifsCount}) ConnectHub`;
+    } else {
+      document.title = 'ConnectHub';
+    }
+  }, [unreadNotifsCount]);
+
 
   // Post Actions
   const handleReactPost = async (postId: string, reaction: ReactionType | null) => {
@@ -839,7 +890,29 @@ export default function App() {
     }
 
     if (notif.type === 'call') {
-      handleStartRealCall(notif.user, 'audio');
+      if (notif.user) {
+        handleStartRealCall(notif.user, 'audio');
+      }
+    } else if (notif.type === 'friend_request' || notif.type === 'friend_accept') {
+      setActiveTab('friends');
+      if (notif.user?.id) {
+        handleOpenProfile(notif.user.id);
+      }
+    } else if (notif.type === 'group') {
+      if (notif.target) {
+        handleSelectGroup(notif.target);
+      } else {
+        setActiveTab('groups');
+      }
+    } else if (notif.type === 'message') {
+      if (notif.user) {
+        setActiveChatUser(notif.user);
+      }
+    } else if (notif.type === 'like' || notif.type === 'comment' || notif.type === 'share') {
+      if (notif.target) {
+        setViewingPostId(notif.target);
+      }
+      setActiveTab('home');
     } else {
       setActiveTab('home');
     }
@@ -1164,6 +1237,8 @@ export default function App() {
               currentUser={currentUser}
               onViewProfile={(id) => handleOpenProfile(id)}
               onStartCall={handleStartRealCall}
+              onOpenPost={handleOpenPostDetail}
+              onSelectGroup={handleSelectGroup}
             />
           )}
 
@@ -1219,6 +1294,53 @@ export default function App() {
           currentUser={currentUser}
           onClose={() => setActiveRealCall(null)}
         />
+      )}
+
+      {/* Real-time Live Notification Toast Alert */}
+      {liveNotificationToast && (
+        <div 
+          onClick={() => {
+            handleNotificationClick(liveNotificationToast);
+            setLiveNotificationToast(null);
+          }}
+          className="fixed top-20 right-4 sm:right-6 z-50 max-w-sm w-[calc(100vw-32px)] bg-white/95 backdrop-blur-md border border-blue-500/30 rounded-2xl p-3.5 shadow-2xl flex items-start gap-3 cursor-pointer hover:bg-blue-50/50 transition-all animate-in slide-in-from-top-3 fade-in duration-300"
+        >
+          <div className="relative shrink-0">
+            <img
+              src={api.getMediaUrl(liveNotificationToast.user?.avatar || '')}
+              alt={liveNotificationToast.user?.name || 'User'}
+              className="w-10 h-10 rounded-full object-cover border border-gray-200"
+            />
+            <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xs text-[10px]">
+              <Bell className="w-2.5 h-2.5" />
+            </div>
+          </div>
+          <div className="flex-1 min-w-0 pr-2">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-gray-900 text-xs truncate">
+                {liveNotificationToast.user?.name}
+              </span>
+              <span className="text-[10px] text-blue-600 font-semibold uppercase tracking-wider shrink-0 ml-1">
+                {language === 'km' ? 'ឥឡូវនេះ' : 'Just now'}
+              </span>
+            </div>
+            <p className="text-xs text-gray-700 leading-snug line-clamp-2 mt-0.5">
+              {formatNotificationContent(liveNotificationToast.content, language)}
+              {liveNotificationToast.target && (
+                <span className="font-semibold text-blue-600"> "{liveNotificationToast.target}"</span>
+              )}
+            </p>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setLiveNotificationToast(null);
+            }}
+            className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors shrink-0 cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
       )}
 
       {/* 1b. Incoming Call Alert — shown to the callee so they can accept/decline */}

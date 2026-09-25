@@ -14,7 +14,11 @@ import {
   Clock,
   Filter,
   User as UserIcon,
-  Video
+  Video,
+  Share2,
+  UserPlus,
+  UserCheck,
+  MessageCircle
 } from 'lucide-react';
 import { NotificationItem, User } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
@@ -26,14 +30,18 @@ interface NotificationsViewProps {
   currentUser?: User;
   onViewProfile?: (userId: string) => void;
   onStartCall?: (user: User, type: 'audio' | 'video') => void;
+  onOpenPost?: (postId: string) => void;
+  onSelectGroup?: (groupId: string) => void;
 }
 
-type NotificationFilter = 'all' | 'unread' | 'like' | 'comment' | 'call' | 'group';
+type NotificationFilter = 'all' | 'unread' | 'like' | 'comment' | 'call' | 'group' | 'friends';
 
 export const NotificationsView: React.FC<NotificationsViewProps> = ({
   currentUser,
   onViewProfile,
   onStartCall,
+  onOpenPost,
+  onSelectGroup,
 }) => {
   const { language } = useLanguage();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -62,11 +70,20 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
     fetchNotifications();
   }, []);
 
-  // Listen for realtime WebSocket notifications
+  // Listen for realtime WebSocket notifications and read state updates
   useEffect(() => {
     const unsubscribe = realtime.subscribe((msg: RealtimeMessage) => {
       if (msg.type === 'NOTIFICATION' && msg.notification) {
-        setNotifications((prev) => [msg.notification, ...prev]);
+        setNotifications((prev) => [
+          msg.notification,
+          ...prev.filter((n) => n.id !== msg.notification.id),
+        ]);
+      } else if (msg.type === 'NOTIFICATION_READ' && msg.notificationId) {
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === msg.notificationId ? { ...n, isRead: true } : n))
+        );
+      } else if (msg.type === 'NOTIFICATIONS_ALL_READ') {
+        setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       }
     });
     return unsubscribe;
@@ -104,6 +121,14 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
     handleMarkAsRead(notif);
     if (notif.type === 'call' && onStartCall && notif.user) {
       onStartCall(notif.user, 'audio');
+    } else if (
+      (notif.type === 'like' || notif.type === 'comment' || notif.type === 'share') &&
+      notif.target &&
+      onOpenPost
+    ) {
+      onOpenPost(notif.target);
+    } else if (notif.type === 'group' && notif.target && onSelectGroup) {
+      onSelectGroup(notif.target);
     } else if (notif.user?.id && onViewProfile) {
       onViewProfile(notif.user.id);
     }
@@ -113,6 +138,7 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
   const filteredNotifications = notifications.filter((notif) => {
     if (filter === 'all') return true;
     if (filter === 'unread') return !notif.isRead;
+    if (filter === 'friends') return notif.type === 'friend_request' || notif.type === 'friend_accept';
     return notif.type === filter;
   });
 
@@ -124,14 +150,23 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
         return <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />;
       case 'comment':
         return <MessageSquare className="w-4 h-4 text-blue-500 fill-blue-500" />;
+      case 'share':
+        return <Share2 className="w-4 h-4 text-cyan-500" />;
+      case 'friend_request':
+        return <UserPlus className="w-4 h-4 text-purple-500" />;
+      case 'friend_accept':
+        return <UserCheck className="w-4 h-4 text-emerald-500" />;
       case 'call':
         return <Phone className="w-4 h-4 text-emerald-500" />;
       case 'group':
-        return <Users className="w-4 h-4 text-purple-500" />;
+        return <Users className="w-4 h-4 text-indigo-500" />;
+      case 'message':
+        return <MessageCircle className="w-4 h-4 text-sky-500" />;
       default:
         return <Sparkles className="w-4 h-4 text-amber-500" />;
     }
   };
+
 
   return (
     <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6 pb-16 animate-in fade-in duration-200">
@@ -248,6 +283,17 @@ export const NotificationsView: React.FC<NotificationsViewProps> = ({
           }`}
         >
           {language === 'km' ? 'ក្រុម & សហគមន៍' : 'Groups'}
+        </button>
+
+        <button
+          onClick={() => setFilter('friends')}
+          className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+            filter === 'friends'
+              ? 'bg-slate-900 text-white shadow-xs'
+              : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+          }`}
+        >
+          {language === 'km' ? 'មិត្តភក្តិ' : 'Friends'}
         </button>
       </div>
 

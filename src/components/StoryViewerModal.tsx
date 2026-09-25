@@ -98,11 +98,31 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
     }
   };
 
-  const handleSendReply = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!replyText.trim()) return;
-    setReplyText('');
+  const handleToggleLike = async () => {
+    if (!currentStory) return;
+    const nextState = !hasLiked;
+    setHasLiked(nextState);
+    if (nextState) {
+      try {
+        await api.reactToStory(currentStory.id);
+      } catch (err) {
+        console.warn('React story API notice:', err);
+      }
+    }
   };
+
+  const handleSendReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const textToSend = replyText.trim();
+    if (!textToSend || !currentStory) return;
+    setReplyText('');
+    try {
+      await api.replyToStory(currentStory.id, textToSend);
+    } catch (err) {
+      console.warn('Reply story API notice:', err);
+    }
+  };
+
 
   if (!currentStory) return null;
 
@@ -258,7 +278,7 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
           </form>
 
           <button
-            onClick={() => setHasLiked(!hasLiked)}
+            onClick={handleToggleLike}
             className={`p-2.5 rounded-full border border-white/20 backdrop-blur-md transition-all active:scale-125 cursor-pointer ${
               hasLiked ? 'bg-red-500 text-white' : 'bg-white/20 text-white hover:bg-white/30'
             }`}

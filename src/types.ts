@@ -97,7 +97,7 @@ export interface GroupMember {
 export interface NotificationItem {
   id: string;
   user: User;
-  type: 'like' | 'comment' | 'share' | 'group' | 'call';
+  type: 'like' | 'comment' | 'share' | 'group' | 'call' | 'friend_request' | 'friend_accept' | 'message';
   content: string;
   target?: string;
   timestamp: string;

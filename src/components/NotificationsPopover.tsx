@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Check, Bell, MessageSquare, ThumbsUp, Users, Phone } from 'lucide-react';
+import { X, Check, Bell, MessageSquare, ThumbsUp, Users, Phone, Share2, UserPlus, UserCheck, MessageCircle } from 'lucide-react';
 import { NotificationItem } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
@@ -8,7 +8,8 @@ import { formatNotificationContent, formatNotificationTimestamp } from '../utils
 interface NotificationsPopoverProps {
   notifications: NotificationItem[];
   onClose: () => void;
-  onMarkAllRead: () => void;
+  onMarkAllRead?: () => void;
+  onMarkAllAsRead?: () => void;
   onNotificationClick: (notif: NotificationItem) => void;
 }
 
@@ -16,9 +17,12 @@ export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({
   notifications,
   onClose,
   onMarkAllRead,
+  onMarkAllAsRead,
   onNotificationClick,
 }) => {
   const { t, language } = useLanguage();
+  const triggerMarkAll = onMarkAllRead || onMarkAllAsRead;
+
 
   const getIcon = (type: NotificationItem['type']) => {
     switch (type) {
@@ -26,10 +30,18 @@ export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({
         return <ThumbsUp className="w-3.5 h-3.5 text-blue-500 fill-blue-500" />;
       case 'comment':
         return <MessageSquare className="w-3.5 h-3.5 text-green-500 fill-green-500" />;
+      case 'share':
+        return <Share2 className="w-3.5 h-3.5 text-cyan-500" />;
+      case 'friend_request':
+        return <UserPlus className="w-3.5 h-3.5 text-purple-500 fill-purple-500" />;
+      case 'friend_accept':
+        return <UserCheck className="w-3.5 h-3.5 text-emerald-500 fill-emerald-500" />;
       case 'group':
         return <Users className="w-3.5 h-3.5 text-indigo-500 fill-indigo-500" />;
       case 'call':
         return <Phone className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />;
+      case 'message':
+        return <MessageCircle className="w-3.5 h-3.5 text-sky-500 fill-sky-500" />;
       default:
         return <Bell className="w-3.5 h-3.5 text-blue-500" />;
     }
@@ -58,7 +70,7 @@ export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={onMarkAllRead}
+              onClick={() => triggerMarkAll?.()}
               className="text-xs text-blue-600 font-semibold hover:underline cursor-pointer"
             >
               {t('modals.markAllRead') || (language === 'km' ? 'សម្គាល់ថាបានអានទាំងអស់' : 'Mark all as read')}

@@ -247,6 +247,19 @@ class ApiService {
     });
   }
 
+  async reactToStory(storyId: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/stories/${storyId}/react`, {
+      method: 'POST',
+    });
+  }
+
+  async replyToStory(storyId: string, text: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/stories/${storyId}/reply`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  }
+
   async deleteStory(storyId: string): Promise<{ success: boolean }> {
     return this.request<{ success: boolean }>(`/stories/${storyId}`, {
       method: 'DELETE',

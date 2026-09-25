@@ -82,3 +82,15 @@ export function startIncomingRing() {
   cycle();
   intervalId = setInterval(cycle, 1600);
 }
+
+/** Subtle, pleasant notification chime (C6 - E6 bell chime) */
+export function playNotificationSound() {
+  const ctx = getContext();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+
+  const now = ctx.currentTime + 0.02;
+  playTone(ctx, 1046.5, now, 0.12, 0.08);
+  playTone(ctx, 1318.5, now + 0.08, 0.22, 0.09);
+}
+
