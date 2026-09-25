@@ -60,7 +60,7 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
 }) => {
   const { language } = useLanguage();
   const [callStatus, setCallStatus] = useState<CallStatus>(
-    isGroupCall ? 'connected' : role === 'caller' ? 'ringing' : 'connecting'
+    role === 'caller' ? 'ringing' : 'connecting'
   );
   const [endReason, setEndReason] = useState<EndReason>(null);
   const [duration, setDuration] = useState(0);
@@ -71,6 +71,9 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [hasRemoteStream, setHasRemoteStream] = useState(false);
+  const [activePeerUser, setActivePeerUser] = useState<User | null>(
+    role === 'callee' || targetUser.id !== currentUser?.id ? targetUser : null
+  );
 
   // Group Call specific states
   const [showInviteDrawer, setShowInviteDrawer] = useState(false);
@@ -87,7 +90,10 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const remoteDescSetRef = useRef(false);
-  const answeredRef = useRef(role === 'callee' || isGroupCall);
+  const answeredPeersRef = useRef<Set<string>>(new Set());
+  const activePeerIdRef = useRef<string | null>(
+    role === 'callee' || targetUser.id !== currentUser?.id ? targetUser.id : null
+  );
   const closedRef = useRef(false);
   const durationRef = useRef(0);
 
@@ -178,6 +184,21 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
   }, []);
 
   useEffect(() => {
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.muted = !isSpeakerOn;
+    }
+  }, [isSpeakerOn]);
+
+  useEffect(() => {
+    if (localVideoRef.current && localStreamRef.current && callType === 'video' && !isVideoOff) {
+      if (localVideoRef.current.srcObject !== localStreamRef.current) {
+        localVideoRef.current.srcObject = localStreamRef.current;
+      }
+      localVideoRef.current.play().catch(() => {});
+    }
+  }, [callType, isVideoOff]);
+
+  useEffect(() => {
     attachRemoteStream();
   }, [hasRemoteStream, callType, callStatus]);
 
@@ -189,12 +210,15 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
 
     pc.onicecandidate = (e) => {
       if (e.candidate) {
-        realtime.send({
-          type: 'WEBRTC_ICE_CANDIDATE',
-          targetUserId: targetUser.id,
-          roomId,
-          candidate: e.candidate.toJSON(),
-        });
+        const destId = activePeerIdRef.current || (targetUser.id !== currentUser?.id ? targetUser.id : null);
+        if (destId) {
+          realtime.send({
+            type: 'WEBRTC_ICE_CANDIDATE',
+            targetUserId: destId,
+            roomId,
+            candidate: e.candidate.toJSON(),
+          });
+        }
       }
     };
 
@@ -280,41 +304,83 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
   useEffect(() => {
     let ringTimeout: ReturnType<typeof setTimeout> | null = null;
 
+    const handlePeerJoin = async (peerId: string, peerName?: string, peerAvatar?: string) => {
+      if (role !== 'caller') return;
+      if (answeredPeersRef.current.has(peerId)) return;
+      answeredPeersRef.current.add(peerId);
+      activePeerIdRef.current = peerId;
+      if (peerName || peerAvatar) {
+        setActivePeerUser({
+          id: peerId,
+          name: peerName || targetUser.name,
+          avatar: peerAvatar || targetUser.avatar,
+          isOnline: true,
+        });
+      }
+      stopRingtone();
+      setCallStatus('connecting');
+      const stream = await initMediaStream();
+      const pc = createPeerConnection();
+      if (stream) {
+        stream.getTracks().forEach((track) => {
+          const senders = pc.getSenders();
+          const existing = senders.find((s) => s.track?.kind === track.kind);
+          if (existing) {
+            existing.replaceTrack(track).catch(() => {});
+          } else {
+            pc.addTrack(track, stream);
+          }
+        });
+      }
+      try {
+        const offer = await pc.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: callType === 'video',
+        });
+        await pc.setLocalDescription(offer);
+        realtime.send({
+          type: 'WEBRTC_OFFER',
+          targetUserId: peerId,
+          callerId: currentUser?.id,
+          callerName: currentUser?.name,
+          callerAvatar: currentUser?.avatar,
+          roomId,
+          sdp: pc.localDescription,
+        });
+      } catch (e) {
+        console.warn('Create offer notice:', e);
+      }
+    };
+
     const handleSignal = async (msg: RealtimeMessage) => {
       if (msg.roomId !== roomId) return;
 
       switch (msg.type) {
         case 'CALL_ACCEPT': {
-          if (role !== 'caller' || answeredRef.current) return;
-          answeredRef.current = true;
-          setCallStatus('connecting');
-          const stream = await initMediaStream();
-          const pc = createPeerConnection();
-          if (stream) {
-            stream.getTracks().forEach((track) => {
-              const senders = pc.getSenders();
-              const existing = senders.find((s) => s.track?.kind === track.kind);
-              if (existing) {
-                existing.replaceTrack(track).catch(() => {});
-              } else {
-                pc.addTrack(track, stream);
-              }
-            });
-          }
-          try {
-            const offer = await pc.createOffer({
-              offerToReceiveAudio: true,
-              offerToReceiveVideo: callType === 'video',
-            });
-            await pc.setLocalDescription(offer);
-            realtime.send({ type: 'WEBRTC_OFFER', targetUserId: targetUser.id, roomId, sdp: pc.localDescription });
-          } catch (e) {
-            console.warn('Create offer notice:', e);
-          }
+          if (role !== 'caller') return;
+          const peerId = msg.calleeId || msg.fromUserId || targetUser.id;
+          handlePeerJoin(peerId, msg.calleeName, msg.calleeAvatar);
+          break;
+        }
+        case 'GROUP_CALL_JOIN': {
+          if (role !== 'caller') return;
+          const joinerId = msg.userId || msg.fromUserId;
+          if (!joinerId || joinerId === currentUser?.id) return;
+          handlePeerJoin(joinerId, msg.userName, msg.userAvatar);
           break;
         }
         case 'WEBRTC_OFFER': {
           if (role !== 'callee') return;
+          const senderId = msg.callerId || msg.fromUserId || targetUser.id;
+          activePeerIdRef.current = senderId;
+          if (msg.callerName || msg.callerAvatar) {
+            setActivePeerUser({
+              id: senderId,
+              name: msg.callerName || targetUser.name,
+              avatar: msg.callerAvatar || targetUser.avatar,
+              isOnline: true,
+            });
+          }
           const stream = await initMediaStream();
           const pc = createPeerConnection();
           if (stream) {
@@ -334,7 +400,13 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
             await flushPendingCandidates();
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
-            realtime.send({ type: 'WEBRTC_ANSWER', targetUserId: targetUser.id, roomId, sdp: pc.localDescription });
+            realtime.send({
+              type: 'WEBRTC_ANSWER',
+              targetUserId: senderId,
+              callerId: currentUser?.id,
+              roomId,
+              sdp: pc.localDescription,
+            });
             setCallStatus('connecting');
           } catch (e) {
             console.warn('Handle offer notice:', e);
@@ -382,6 +454,20 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
             finishCall('ended');
           }
           break;
+        case 'GROUP_CALL_LEAVE':
+          if (msg.userId && msg.userId === activePeerIdRef.current) {
+            setHasRemoteStream(false);
+            if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+            if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
+            activePeerIdRef.current = null;
+            setActivePeerUser(null);
+            if (role === 'callee') {
+              finishCall('ended');
+            } else {
+              setCallStatus('ringing');
+            }
+          }
+          break;
         case 'GROUP_CALL_END':
           finishCall('ended');
           break;
@@ -393,11 +479,17 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
     initMediaStream().then(() => {
       if (role === 'caller' && !isGroupCall) {
         ringTimeout = setTimeout(() => {
-          if (!answeredRef.current && !closedRef.current) {
+          if (answeredPeersRef.current.size === 0 && !closedRef.current) {
             realtime.send({ type: 'CALL_END', targetUserId: targetUser.id, roomId });
             finishCall('unavailable');
           }
         }, 30000);
+      } else if (role === 'caller' && isGroupCall) {
+        ringTimeout = setTimeout(() => {
+          if (answeredPeersRef.current.size === 0 && !closedRef.current) {
+            finishCall('unavailable');
+          }
+        }, 60000);
       }
     });
 
@@ -548,9 +640,17 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
 
   const handleEndCall = () => {
     if (isGroupCall && groupId) {
-      realtime.send({ type: 'GROUP_CALL_LEAVE', groupId, roomId, userId: currentUser?.id });
+      if (role === 'caller') {
+        realtime.send({ type: 'GROUP_CALL_END', groupId, roomId, userId: currentUser?.id });
+      } else {
+        realtime.send({ type: 'GROUP_CALL_LEAVE', groupId, roomId, userId: currentUser?.id });
+        if (activePeerIdRef.current) {
+          realtime.send({ type: 'CALL_END', targetUserId: activePeerIdRef.current, roomId });
+        }
+      }
     } else {
-      realtime.send({ type: 'CALL_END', targetUserId: targetUser.id, roomId });
+      const destId = activePeerIdRef.current || targetUser.id;
+      realtime.send({ type: 'CALL_END', targetUserId: destId, roomId });
     }
     finishCall('ended');
   };
@@ -568,10 +668,11 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
   };
 
   const showRemoteVideo = callType === 'video' && hasRemoteStream && callStatus === 'connected';
+  const displayUser = activePeerUser || (targetUser.id !== currentUser?.id ? targetUser : null);
 
   // For group call, collect display participants
   const otherMembers = isGroupCall
-    ? groupMembers.filter((m) => m.id !== currentUser?.id && m.id !== targetUser.id)
+    ? groupMembers.filter((m) => m.id !== currentUser?.id && m.id !== (displayUser ? displayUser.id : targetUser.id))
     : [];
 
   return (
@@ -661,13 +762,14 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
             ref={remoteVideoRef}
             autoPlay
             playsInline
+            muted
             className={`absolute inset-0 w-full h-full object-cover z-10 transition-opacity duration-300 ${
               showRemoteVideo ? 'opacity-100' : 'opacity-0 pointer-events-none'
             }`}
           />
 
-          {/* Audio Sink */}
-          <audio ref={remoteAudioRef} autoPlay />
+          {/* Dedicated Audio Sink - Permanently mounted so remote audio plays seamlessly */}
+          <audio ref={remoteAudioRef} autoPlay playsInline />
 
           {/* Fallback Display with Avatar when remote video is not active / during ringing */}
           {!showRemoteVideo && (
@@ -698,26 +800,45 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Target User / Host Card */}
-                  <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 flex flex-col items-center justify-center text-center space-y-2 relative shadow-lg">
-                    <div className="relative">
-                      <img
-                        src={api.getMediaUrl(targetUser.avatar)}
-                        alt={targetUser.name}
-                        className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-blue-500"
-                      />
-                      <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-slate-950 bg-emerald-500 animate-pulse" />
+                  {/* Target User / Joined Peer Card */}
+                  {displayUser ? (
+                    <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 flex flex-col items-center justify-center text-center space-y-2 relative shadow-lg">
+                      <div className="relative">
+                        <img
+                          src={api.getMediaUrl(displayUser.avatar)}
+                          alt={displayUser.name}
+                          className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-blue-500"
+                        />
+                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-slate-950 bg-emerald-500 animate-pulse" />
+                      </div>
+                      <div>
+                        <p className="text-white text-xs sm:text-sm font-semibold truncate max-w-[120px]">
+                          {displayUser.name}
+                        </p>
+                        <p className="text-[11px] text-emerald-400 flex items-center justify-center gap-1 mt-0.5">
+                          <Mic className="w-3 h-3 text-emerald-400" />
+                          {hasRemoteStream ? (language === 'km' ? 'សកម្ម' : 'Active') : (language === 'km' ? 'កំពុងភ្ជាប់...' : 'Connecting...')}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-white text-xs sm:text-sm font-semibold truncate max-w-[120px]">
-                        {targetUser.name}
-                      </p>
-                      <p className="text-[11px] text-emerald-400 flex items-center justify-center gap-1 mt-0.5">
-                        <Mic className="w-3 h-3 text-emerald-400" />
-                        {language === 'km' ? 'សកម្ម' : 'Active'}
-                      </p>
+                  ) : (
+                    <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 flex flex-col items-center justify-center text-center space-y-2 relative shadow-lg">
+                      <div className="relative">
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-slate-800 border-2 border-dashed border-indigo-400/50 flex items-center justify-center text-indigo-400">
+                          <Users className="w-7 h-7 animate-pulse" />
+                        </div>
+                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-slate-950 bg-amber-400 animate-ping" />
+                      </div>
+                      <div>
+                        <p className="text-white text-xs sm:text-sm font-semibold truncate max-w-[120px]">
+                          {language === 'km' ? 'រង់ចាំសមាជិក...' : 'Waiting to join...'}
+                        </p>
+                        <p className="text-[11px] text-amber-400 mt-0.5">
+                          {language === 'km' ? 'កំពុងហៅ...' : 'Ringing...'}
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Other Group Members in Call / Group */}
                   {otherMembers.slice(0, 1).map((member) => (
@@ -766,8 +887,8 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
                 <div className="relative">
                   <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-blue-500 shadow-2xl overflow-hidden relative z-10 bg-slate-800">
                     <img
-                      src={api.getMediaUrl(targetUser.avatar)}
-                      alt={targetUser.name}
+                      src={api.getMediaUrl(displayUser ? displayUser.avatar : targetUser.avatar)}
+                      alt={displayUser ? displayUser.name : targetUser.name}
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -780,15 +901,12 @@ export const RealCallModal: React.FC<RealCallModalProps> = ({
                 </div>
 
                 <div>
-                  <h3 className="text-xl sm:text-2xl font-black text-white">{targetUser.name}</h3>
+                  <h3 className="text-xl sm:text-2xl font-black text-white">{displayUser ? displayUser.name : targetUser.name}</h3>
                   <p className="text-xs text-slate-400 mt-1">{statusLabel()}</p>
                 </div>
               </div>
             )
           )}
-
-          {/* Hidden audio sink so audio-only (or camera-off) calls still play the remote track */}
-          {!showRemoteVideo && <audio ref={remoteAudioRef} autoPlay />}
 
           {/* Picture-in-Picture Local Camera Feed (Top Right) */}
           {callType === 'video' && !isVideoOff && (

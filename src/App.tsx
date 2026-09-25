@@ -467,9 +467,31 @@ export default function App() {
         groupId: incomingCall.groupId,
         roomId: incomingCall.roomId,
         userId: currentUser.id,
+        userName: currentUser.name,
+        userAvatar: currentUser.avatar,
+        targetUserId: incomingCall.fromUserId,
+        callerId: incomingCall.fromUserId,
+      });
+      // Direct CALL_ACCEPT to the caller to initiate the WebRTC handshake
+      realtime.send({
+        type: 'CALL_ACCEPT',
+        targetUserId: incomingCall.fromUserId,
+        roomId: incomingCall.roomId,
+        callerId: incomingCall.fromUserId,
+        calleeId: currentUser.id,
+        calleeName: currentUser.name,
+        calleeAvatar: currentUser.avatar,
+        groupId: incomingCall.groupId,
+        isGroupCall: true,
       });
     } else {
-      realtime.send({ type: 'CALL_ACCEPT', targetUserId: incomingCall.fromUserId, roomId: incomingCall.roomId });
+      realtime.send({
+        type: 'CALL_ACCEPT',
+        targetUserId: incomingCall.fromUserId,
+        roomId: incomingCall.roomId,
+        callerId: incomingCall.fromUserId,
+        calleeId: currentUser.id,
+      });
     }
     setActiveRealCall({
       targetUser: incomingCall.fromUser,
@@ -487,7 +509,16 @@ export default function App() {
 
   const handleDeclineIncomingCall = () => {
     if (!incomingCall) return;
-    if (!incomingCall.isGroupCall) {
+    if (incomingCall.isGroupCall) {
+      if (incomingCall.groupId) {
+        realtime.send({
+          type: 'GROUP_CALL_LEAVE',
+          groupId: incomingCall.groupId,
+          roomId: incomingCall.roomId,
+          userId: currentUser.id,
+        });
+      }
+    } else {
       realtime.send({ type: 'CALL_DECLINE', targetUserId: incomingCall.fromUserId, roomId: incomingCall.roomId });
     }
     if (incomingCall.sessionId) {
